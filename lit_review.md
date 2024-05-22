@@ -86,6 +86,35 @@ where D is the measured depth
 - Code available at github
 
 
+
+
+## Shine Mapping
+#### Review
+- Very important reference for this project
+- Author uses OctTree to provide spacial encoding
+- For each "ray", ray is sampled at areas close to termination of of laser measurement
+- Sampled point is added with trilinear interpolation of encoding values on corners of each octtree embedding
+
+##### Model Architecture
+
+##### Sampling Strategy
+- Sample points along each laser "ray", which can also be over the termination point of the ray
+
+##### Loss function Design
+- For a sampled point x_i, map a signed distance function onto it, where "0" is at the termination point of the ray
+- then, apply sigmoid function to the sign distance function value as said
+- This will be the desired value l_i (y for supervised learning)
+- On the other hand, the network would predict a signed distance value for given x_i, which would then also be applied a sigmoid function to it, giving us o_i
+- Finally, binary cross entropy loss was calulated between o_i and l_i
+- Effectively, o_i is the occupancy probability (assume solid after surface)
+- Also, use of sigmoid realize soft truncation of signed distance.
+- The final loss fo a batch is then:
+$$ L_{batch} =  L_{bce} + \lambda_e(|| \frac{df_\theta(x_i)}{dx_i} - 1 ||)^2$$
+
+- Where L_bce is the 
+
+
+
 # Idea
 
 - Model predict 2D surface at each 3d point
