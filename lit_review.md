@@ -78,29 +78,23 @@ where D is the measured depth
 
 
 
-## VDB Fusion
-#### Review
-
-
-#### Code
-- Code available at github
-
-
 
 
 ## Shine Mapping
-#### Review
+### Review
 - Very important reference for this project
 - Author uses OctTree to provide spacial encoding
 - For each "ray", ray is sampled at areas close to termination of of laser measurement
 - Sampled point is added with trilinear interpolation of encoding values on corners of each octtree embedding
 
-##### Model Architecture
+### Model Architecture & Feature Engineering
+- Feature encoded with octree with different resoluiton
+- Then apply shallow MLP for SDF prediction
 
-##### Sampling Strategy
+### Sampling Strategy
 - Sample points along each laser "ray", which can also be over the termination point of the ray
 
-##### Loss function Design
+### Loss function Design
 - For a sampled point x_i, map a signed distance function onto it, where "0" is at the termination point of the ray
 - then, apply sigmoid function to the sign distance function value as said
 - This will be the desired value l_i (y for supervised learning)
@@ -109,9 +103,27 @@ where D is the measured depth
 - Effectively, o_i is the occupancy probability (assume solid after surface)
 - Also, use of sigmoid realize soft truncation of signed distance.
 - The final loss fo a batch is then:
-$$ L_{batch} =  L_{bce} + \lambda_e(|| \frac{df_\theta(x_i)}{dx_i} - 1 ||)^2$$
+$$ L_{batch} =  L_{bce} + \lambda_e(|| \frac{df_\theta(x_i)}{dx_i} - 1 ||)^2 + \lambda_rL_r$$ 
 
-- Where L_bce is the 
+- Where L_bce is the cross entropy loss, and the second term is to force function to be SDF
+- Finally, L_r term is added so that parameters don't update too much, which can avoid catrosphical forgetting
+- With the obtained signed distance field, 3D model can be randered using raymarching.
+
+
+
+## VDB fusion
+### Review
+- Compared to octree, VDB (just a name) is a more effective data structure to store point clouds
+- Using point cloud and sensor pose as input, the author can "integrate" all points into one VDB
+- Then, for each "ray", near the termination of each ray, we update nearby voxel along the ray
+- The voxel to be updated will be updated by weighted projected signed distance value of the ray using centre of each voxel, 
+- Finally, the 0 set represents the reconstructed surface
+- Technically no machine learning involved
+
+
+### Code
+- Code available in github, and was able to replicate result on KITTI dataset
+
 
 
 
