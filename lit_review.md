@@ -31,8 +31,8 @@
 
 #### Review
 - Lidar pior for NeRF, with high quality 3d reconstruction available 
-- Apply depth regularization from LiDAR prior:
-  $$ L_depth = sum (KL ( Norm(D, sigma) || h(t))) $$
+- Apply depth regularization from LiDAR prior using the following loss term:
+  $$ L_{depth} = sum (KL ( Norm(D, sigma) || h(t))) $$
 where D is the measured depth
 
 - Apply following surface normal regularization to avoid wavy surface
@@ -45,22 +45,22 @@ where D is the measured depth
 
 ## Nerfacto
 
-#### Review
+### Review
 - 
 
-#### Code
+### Code
 - Code readily available
 
 ## LiDENeRF
 
-#### Code
+### Code
 - Code not yet available
 
 
 
 ## LiDAR4D
 
-#### Review
+### Review
 - NeRF for LiDAR view synthesis
 - State of the art LiDAR view synthesis quality on KITTI 360 data
 
@@ -69,11 +69,11 @@ where D is the measured depth
 
 
 ## 3D LiDAR Recon wiht Probablistic Depth
-#### Review
+### Review
 - Uses camera + 16 beam lidar sensor and achieved superior depth reconstruction compare to only using 64 beam lidar sensor
 - 
 
-#### Code
+### Code
 - No code available
 
 
@@ -126,9 +126,7 @@ $$ L_{batch} =  L_{bce} + \lambda_e(|| \frac{df_\theta(x_i)}{dx_i} - 1 ||)^2 + \
 
 
 
-
 # Idea
-
 - Model predict 2D surface at each 3d point
 - attempt fit fragment of surface to neighbour points
 - also punish model for "cutting rays (parellel computation process)
