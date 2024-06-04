@@ -9,7 +9,11 @@ LivoxViewer2 for Ubuntu v2.3.0/
 # settings
 settings.json
 
+<<<<<<< HEAD
 # local
+=======
+# local stuff
+>>>>>>> a3d3072 (drafting loss function)
 local/
 
 

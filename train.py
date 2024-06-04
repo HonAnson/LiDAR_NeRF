@@ -18,11 +18,10 @@ def loadData():
     # List all files in the specified path, ignoring directories
     files = [f for f in os.listdir(dataset_path) if os.path.isfile(os.path.join(dataset_path, f))]
     files.sort()
-
     # read the files
     points_xyz = []
     for s in files:
-        path = 'datasets/testing1/' + s
+        path = dataset_path + s
         df = pd.read_csv(path)
         a = df.to_numpy()
         b = a[:,8:11]
@@ -83,14 +82,57 @@ def prepareData(points_xyz):
 
 
 
+
+
+
+
+class LiDAR_NeRF(nn.Module):
+    def __init__(self, embedding_dim_pos = 10, embedding_dim_dir = 4, hidden_dim = 256):
+        super(LiDAR_NeRF, self).__init__()
+
+        self.layers = nn.Sequential(
+            nn.Linear(embedding_dim_pos * 3 + embedding_dim_dir*2, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(512, 1)          # Output layer with 1 output
+        )
+        
+    @staticmethod
+    def positional_encoding(x, L):
+        out = [x]
+        for j in range(L):
+            out.append(torch.sin(2 ** j * x))
+            out.append(torch.cos(2 ** j * x))
+        return torch.cat(out, dim=1)
+
+    def forward(self, o, d):
+        emb_x = self.positional_encoding(o, self.)
+        emb_d = self.positional_encoding()
+        return self.layers(x)
+
+
+    def lossBCE(self, r, y, sampled_pos):  # r = distance from lidar measurement, y = function output at different points, it is a vector
+        y_sigmoid_value = nn.sigmoid(y)
+        r_sigmoid_value = nn.sigmoid(-sampled_pos-r)
+        loss = nn.CrossEntropyLoss(r_sigmoid_value, y_sigmoid_value)
+        return loss
+
+
+
+
+
+
+
+
+
 ### Train the model
 def trainModel(dataset):
 
     features = 5
     batch_size = 256
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using {device} device")
 
     # Convert dataset to pytorch tensor
     X = np.array(dataset[:,1:])
@@ -105,25 +147,6 @@ def trainModel(dataset):
 
     # Now we prepare to train the model
 
-    class MLP(nn.Module):
-        def __init__(self):
-            super(MLP, self).__init__()
-            self.layers = nn.Sequential(
-                nn.Linear(5, 512),  # Input layer with 5 inputs and 10 outputs
-                nn.ReLU(),                # Activation function
-                nn.Linear(512, 512),        # Hidden layer with 512 neurons
-                nn.ReLU(),                # Activation function
-                nn.Linear(512, 512),        # Hidden layer with 512 neurons
-                nn.ReLU(),                # Activation function
-                nn.Linear(512, 512),        # Hidden layer with 512 neurons
-                nn.ReLU(),                # Activation function
-                nn.Linear(512, 512),        # Hidden layer with 512 neurons
-                nn.ReLU(),                # Activation function
-                nn.Linear(512, 1)          # Output layer with 1 output
-            )
-            
-        def forward(self, x):
-            return self.layers(x)
 
     # Initialize the model
     model = MLP().to(device)
@@ -147,9 +170,7 @@ def trainModel(dataset):
             loss.backward()
             optimizer.step()
 
-        print(loss)
-
-
+        
     return
 
 
@@ -165,13 +186,22 @@ def cart2sph(xyz):
     elev = np.arctan2(list(z), np.sqrt(list(XsqPlusYsq)))
     pan = np.arctan2(list(x), list(y))
     output = np.array([r, elev, pan])
-    return rearrange(output, 'a b -> b a') 
+    return rearrange(output, 'a b -> b a') #take transpose
 #######################################
 
 
 
 
+
+
+
 if __name__ == "__main__":
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using {device} device")
     points = loadData()
     dataset = prepareData(points)
-    trainModel(dataset)
+    trainModel(dataset, device)
+
+
+
+
