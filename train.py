@@ -75,16 +75,79 @@ def prepareData(points_xyz):
     np.random.shuffle(dataset)
 
     # (2) Filter out points where the distance value is = 0
-    mask = dataset[:, 0] != 0
+    mask1 = dataset[:, 0] != 0
+    mask2 = dataset[:,0] > 50
+    mask = mask1 + mask2
     dataset = dataset[mask]
-    return dataset   # type = numpy array
+    return dataset   # type = numpyArray
 
 
 
 ### Train the model
-def trainModel():
-    
+def trainModel(dataset):
 
+    features = 5
+    batch_size = 256
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using {device} device")
+
+    # Convert dataset to pytorch tensor
+    X = np.array(dataset[:,1:])
+    y = np.array(dataset[:,0])
+
+    # Convert to tensor:
+    X_tensor = torch.from_numpy(X).double()
+    y_tensor = torch.from_numpy(y).double()
+
+    dataset = TensorDataset(X_tensor, y_tensor)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Now we prepare to train the model
+
+    class MLP(nn.Module):
+        def __init__(self):
+            super(MLP, self).__init__()
+            self.layers = nn.Sequential(
+                nn.Linear(5, 512),  # Input layer with 5 inputs and 10 outputs
+                nn.ReLU(),                # Activation function
+                nn.Linear(512, 512),        # Hidden layer with 512 neurons
+                nn.ReLU(),                # Activation function
+                nn.Linear(512, 512),        # Hidden layer with 512 neurons
+                nn.ReLU(),                # Activation function
+                nn.Linear(512, 512),        # Hidden layer with 512 neurons
+                nn.ReLU(),                # Activation function
+                nn.Linear(512, 512),        # Hidden layer with 512 neurons
+                nn.ReLU(),                # Activation function
+                nn.Linear(512, 1)          # Output layer with 1 output
+            )
+            
+        def forward(self, x):
+            return self.layers(x)
+
+    # Initialize the model
+    model = MLP().to(device)
+
+    # Loss and Optimizer
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+
+    # Training Loop
+    num_epochs = 50
+    for epoch in range(num_epochs):
+        for inputs, targets in dataloader:
+            inputs, targets = inputs.to(device).float(), targets.to(device).float()
+            
+            # Forward pass
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+
+            # Backward and optimize
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        print(loss)
 
 
     return
