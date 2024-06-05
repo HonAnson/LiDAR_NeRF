@@ -10,11 +10,10 @@ import torch.optim as optim
 import math
 
 
-# load data from dataset directory, filterout irralevent datas
+# Load data from dataset directory, filterout irralevent datas
 def loadData():
     # Specify the directory path
     dataset_path = 'datasets/testing1'
-
     # List all files in the specified path, ignoring directories
     files = [f for f in os.listdir(dataset_path) if os.path.isfile(os.path.join(dataset_path, f))]
     files.sort()
@@ -29,10 +28,7 @@ def loadData():
     return points_xyz   # type = list
 
 
-### we now process the data
-# (1) Convert data to spherical coordinate
-# (2) Filter out extreme value datas
-# 3. Stack them into one big numpy matrix
+### Process the data
 def prepareData(points_xyz):
     # (1) Convert to spherical coorindate
     # NOTE: points in spherical coordinate are arranged: [r, elev, pan]
@@ -50,35 +46,10 @@ def prepareData(points_xyz):
     t3 = np.array([-2.661,-0.263,0.166])
     t4 = np.array([-3.607,-0.156,0.039])
     translations = [t0, t1, t2, t3, t4]
-
-    # camera centre locations
-    centres = [-t for t in translations]
-    centres_data = []
-    for i,c in enumerate(centres):
-        l = len(points_sphere[i])
-        temp = np.tile(c, (l, 1))
-        centres_data.append(temp)
-
-    # (3) Stack camera centre, r and angles into a matrix
-    stacked = []
-    for i in range(len(points_sphere)):
-        temp = np.hstack((points_sphere[i], centres_data[i]))
-        stacked.append(temp)
-
-    dataset = np.array([])
-    for i in range(len(stacked)):
-        if i == 0:
-            dataset = stacked[i]
-        else:
-            dataset = np.vstack((dataset, stacked[i]))
-    np.random.shuffle(dataset)
-
-    # (2) Filter out points where the distance value is = 0
-    mask1 = dataset[:, 0] != 0
-    mask2 = dataset[:,0] > 50
-    mask = mask1 + mask2
-    dataset = dataset[mask]
     return dataset   # type = numpyArray
+
+
+
 
 
 
@@ -89,7 +60,8 @@ def prepareData(points_xyz):
 class LiDAR_NeRF(nn.Module):
     def __init__(self, embedding_dim_pos = 10, embedding_dim_dir = 4, hidden_dim = 256):
         super(LiDAR_NeRF, self).__init__()
-
+        self.embedding_dim_dir = embedding_dim_dir
+        self.embedding_dim_pos = embedding_dim_pos
         self.layers = nn.Sequential(
             nn.Linear(embedding_dim_pos * 3 + embedding_dim_dir*2, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
@@ -108,8 +80,9 @@ class LiDAR_NeRF(nn.Module):
         return torch.cat(out, dim=1)
 
     def forward(self, o, d):
-        emb_x = self.positional_encoding(o, self.)
-        emb_d = self.positional_encoding()
+        emb_x = self.positional_encoding(o, self.embedding_dim_pos)
+        emb_d = self.positional_encoding(d, self.embedding_dim_dir)
+        
         return self.layers(x)
 
 
@@ -129,47 +102,6 @@ class LiDAR_NeRF(nn.Module):
 
 ### Train the model
 def trainModel(dataset):
-
-    features = 5
-    batch_size = 256
-
-
-    # Convert dataset to pytorch tensor
-    X = np.array(dataset[:,1:])
-    y = np.array(dataset[:,0])
-
-    # Convert to tensor:
-    X_tensor = torch.from_numpy(X).double()
-    y_tensor = torch.from_numpy(y).double()
-
-    dataset = TensorDataset(X_tensor, y_tensor)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    # Now we prepare to train the model
-
-
-    # Initialize the model
-    model = MLP().to(device)
-
-    # Loss and Optimizer
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
-
-    # Training Loop
-    num_epochs = 50
-    for epoch in range(num_epochs):
-        for inputs, targets in dataloader:
-            inputs, targets = inputs.to(device).float(), targets.to(device).float()
-            
-            # Forward pass
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-
-            # Backward and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
         
     return
 
@@ -199,8 +131,6 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using {device} device")
     points = loadData()
-    dataset = prepareData(points)
-    trainModel(dataset, device)
 
 
 
