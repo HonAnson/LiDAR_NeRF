@@ -51,12 +51,6 @@ def prepareData(points_xyz):
 
 
 
-
-
-
-
-
-
 class LiDAR_NeRF(nn.Module):
     def __init__(self, embedding_dim_pos = 10, embedding_dim_dir = 4, hidden_dim = 256):
         super(LiDAR_NeRF, self).__init__()
