@@ -25,7 +25,17 @@
 - Suspect reason due to majority of sampled position are belong positive or negative side of SDF, causing class imbalancing, and thus collaps of model
 - Suspect a bug in calculation of loss function
  
-### Trial 2
+### Trial 4
+- fixed indexing problem in sampling, appears to be the reason of the bug previouly
+- Loss value converges at around 0.25 after 1 epoch, relatively high loss
+- Currently the sampling method samples mainly "on the ray", will try with a more balancd class in next trial
+- if next trial fails, will look into nerf in the wild, or other approach
+
+
+
+### Trial 5
+
+
 
 
 
