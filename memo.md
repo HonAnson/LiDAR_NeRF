@@ -26,18 +26,27 @@
 - Suspect a bug in calculation of loss function
  
 ### Trial 4
-- fixed indexing problem in sampling, appears to be the reason of the bug previouly
+- fixed indexing problem in sampling, which appears to be the cause of previous bug
 - Loss value converges at around 0.25 after 1 epoch, relatively high loss
 - Currently the sampling method samples mainly "on the ray", will try with a more balancd class in next trial
 - if next trial fails, will look into nerf in the wild, or other approach
 
-
-
 ### Trial 5
+- loss convers around 0.2 after 1 epoch
+- Able to reconstruct the floor  
+- rough reconstruction of vehicles around
+- Poor reconstruction to structures
+- maybe consider space wrapping?
 
+### Trial 7
+- tunned hyperparameter of angle embedding dimension to 15
+- No significant improvement could be seen
+- Plan: do more literature review
+- explore oct-tree embedding instead of positional embedding instead (allow better representation efficiency)
+- explore upsampling for small angle 
 
-
-
+### Trial 8
+- updated sampling strategy so that denser points are sampled around points in point cloud
 
 
 
