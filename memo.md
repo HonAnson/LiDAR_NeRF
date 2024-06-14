@@ -56,9 +56,16 @@
 - Slightly better reconstruction overall, but fail to reconstruct nearby structure
 - Still amny noises around
 
+
+### Trial 4
+- implemented ICP for frame registration, no huge difference, but does reduce noise
+- next step will be to change sampling method
+
+
 ### Note to self:
 1. try to choose smaller area of data for reconstruction, see how it perform
-2. include ICP algorithm
+2. include ICP algorithm 
 3. try to use TSDF instead of the current weird project sdf range
+4. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
 
 
