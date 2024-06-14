@@ -50,3 +50,15 @@
 
 
 
+## Version 2
+### Trial 2
+- Utilized upsampling
+- Slightly better reconstruction overall, but fail to reconstruct nearby structure
+- Still amny noises around
+
+### Note to self:
+1. try to choose smaller area of data for reconstruction, see how it perform
+2. include ICP algorithm
+3. try to use TSDF instead of the current weird project sdf range
+
+
