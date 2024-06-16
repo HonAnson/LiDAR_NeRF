@@ -63,24 +63,44 @@
 ### Trial 5
 - tried a more "proper" sampling strategy, where points close to surface are densely sampled
 
+### Trial 8 and 9
+- tried smaller scale scene
+- very poor reconstruction quality achieved
+
+
+## Version 3
+- Trying to use space wrapping 
+- In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
+
+
+
+
+
 
 ### TODO
 
 * Have to figure out how to handle "infinitely far" problem
+* Figure out how to properly register frames, as the register quality is poor
+* Use polar coordinate to express qurying points
+
 
 ### Note to self:
-1. try to choose smaller area of data for reconstruction, see how it perform
-- Tried on choosing structure nearby only, poor reconstruction problem still exist. Potentially due to the model don't know what to do when there is no ray (truncated due to it being very far)
-- Review other's work on how to handle this problem (Mip NeRF 360)
 
 
 
-2. Download other dataset
+
+1. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
+  
+2. Try Ekironal Loss
 
 3. try to use TSDF instead of the current weird project sdf range
-4. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
-5. Figure out what the fuck is space wrapping
-6. Try Ekironal Loss
+
+4. Download other dataset and give it a go
 
 
+- Done: Figure out what the fuck is space wrapping
+- Basically a mapping function to map R3 space to R3, while "density" of the space is porpotional to the sampling density of sensors
 
+- Done: try to choose smaller area of data for reconstruction, see how it perform
+- Tried on choosing structure nearby only, poor reconstruction problem still exist. Potentially due to the model don't know what to do when there is no ray (truncated due to it being very far)
+- Review other's work on how to handle this problem (Mip NeRF 360)
