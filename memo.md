@@ -71,8 +71,13 @@
 ## Version 3
 - Trying to use space wrapping 
 - In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
+### Trial 0
+- Used MSE loss instead of sigmoid and BCE loss
+- Achieved similar result with sigmoid and BCE loss
 
 
+### Trial 1
+- attempt to use polar coordinate for training, doesn't appear to improve loss value
 
 
 
