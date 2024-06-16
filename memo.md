@@ -60,19 +60,27 @@
 ### Trial 4
 - implemented ICP for frame registration, no huge difference, but does reduce noise
 - next step will be to change sampling method
-
-
 ### Trial 5
 - tried a more "proper" sampling strategy, where points close to surface are densely sampled
 
 
+### TODO
+
+* Have to figure out how to handle "infinitely far" problem
 
 ### Note to self:
 1. try to choose smaller area of data for reconstruction, see how it perform
-2. try to use TSDF instead of the current weird project sdf range
-3. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
-4. Try Ekironal Loss
-5. Download other dataset
-6. Figure out what the fuck is space wrapping
-7. 
+- Tried on choosing structure nearby only, poor reconstruction problem still exist. Potentially due to the model don't know what to do when there is no ray (truncated due to it being very far)
+- Review other's work on how to handle this problem (Mip NeRF 360)
+
+
+
+2. Download other dataset
+
+3. try to use TSDF instead of the current weird project sdf range
+4. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
+5. Figure out what the fuck is space wrapping
+6. Try Ekironal Loss
+
+
 
