@@ -78,6 +78,7 @@
 
 ### Trial 1
 - attempt to use polar coordinate for training, doesn't appear to improve loss value
+- Reconstruction quality lower than using cartisian coordinate
 
 
 
