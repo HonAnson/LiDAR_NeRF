@@ -87,8 +87,7 @@
 
 * Have to figure out how to handle "infinitely far" problem
 * Figure out how to properly register frames, as the register quality is poor
-* Use polar coordinate to express qurying points
-
+* check the cart to polar coordinate, ensure coordinates are transformed properly
 
 ### Note to self:
 
