@@ -8,8 +8,8 @@ RUN apt-get install curl  # if you haven't already installed curl
 RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
 RUN apt-get update
 RUN apt-get install ros-noetic-desktop-full -y
-RUN apt-get install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential -y
-RUN apt install python-rosdep -y
+RUN apt-get install python3-rosdep python3-rosinstall python3-rosinstall-generator python3-wstool build-essential -y
+RUN apt install python3-rosdep -y
 RUN rosdep init
 RUN rosdep update
 
