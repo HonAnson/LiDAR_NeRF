@@ -13,5 +13,18 @@ RUN apt install python3-rosdep -y
 RUN rosdep init
 RUN rosdep update
 
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    python3 \
+    python3-dev \
+    python3-pip \
+    wget \
+    git \
+    libgl1-mesa-glx \
+    vim \
+    && apt-get clean
+
+RUN python3 -m pip install --upgrade pip
+# RUN pip3 install open3d==0.17.0 scikit-image wandb tqdm natsort pyquaternion
+
 
 RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
