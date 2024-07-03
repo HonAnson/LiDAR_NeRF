@@ -87,22 +87,15 @@
 - Trying to use space wrapping 
 - In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
 
-
-
-
-
 ### Trial 2
 - Applied wrapping with radius 10 around [0,0,0], hopefully would help
 - Also used manual registering of the data, whcich shall improve reconstruction quality
 
 
 ### TODO
-
 * check whether upSampling() is working properly, where we are always using the smaller angle
 
-
 ### Note to self:
-
 1. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
   
 2. Try Ekironal Loss
