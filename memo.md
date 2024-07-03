@@ -49,38 +49,65 @@
 - updated sampling strategy so that denser points are sampled around points in point cloud
 
 
-
 ## Version 2
 ### Trial 2
 - Utilized upsampling
 - Slightly better reconstruction overall, but fail to reconstruct nearby structure
 - Still amny noises around
 
-
 ### Trial 4
 - implemented ICP for frame registration, no huge difference, but does reduce noise
 - next step will be to change sampling method
+
 ### Trial 5
 - tried a more "proper" sampling strategy, where points close to surface are densely sampled
 
+### Trial 8 and 9
+- tried smaller scale scene
+- very poor reconstruction quality achieved
+
+### Trial 10
+- using manual registered points, with upsampling
+- About 280 second per iteration
+
+
+### Trial 11
+- using manual register points, without upsampling
+
+
+### Trial 12
+- Used MSE loss instead of sigmoid and BCE loss
+- Achieved similar result with sigmoid and BCE loss
+
+### Trial 1
+- attempt to use polar coordinate for training, doesn't appear to improve loss value
+- Reconstruction quality lower than using cartisian coordinate
+
+## Version 3
+- Trying to use space wrapping 
+- In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
+
+### Trial 2
+- Applied wrapping with radius 10 around [0,0,0], hopefully would help
+- Also used manual registering of the data, whcich shall improve reconstruction quality
+
 
 ### TODO
-
-* Have to figure out how to handle "infinitely far" problem
+* check whether upSampling() is working properly, where we are always using the smaller angle
 
 ### Note to self:
-1. try to choose smaller area of data for reconstruction, see how it perform
-- Tried on choosing structure nearby only, poor reconstruction problem still exist. Potentially due to the model don't know what to do when there is no ray (truncated due to it being very far)
-- Review other's work on how to handle this problem (Mip NeRF 360)
-
-
-
-2. Download other dataset
+1. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
+  
+2. Try Ekironal Loss
 
 3. try to use TSDF instead of the current weird project sdf range
-4. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
-5. Figure out what the fuck is space wrapping
-6. Try Ekironal Loss
+
+4. Download other dataset and give it a go
 
 
+- Done: Figure out what the fuck is space wrapping
+- Basically a mapping function to map R3 space to R3, while "density" of the space is porpotional to the sampling density of sensors
 
+- Done: try to choose smaller area of data for reconstruction, see how it perform
+- Tried on choosing structure nearby only, poor reconstruction problem still exist. Potentially due to the model don't know what to do when there is no ray (truncated due to it being very far)
+- Review other's work on how to handle this problem (Mip NeRF 360)
