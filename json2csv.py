@@ -1,6 +1,4 @@
 import json
-import open3d as o3d
-import sys
 import os
 import numpy as np
 import pandas as pd
@@ -20,11 +18,11 @@ def listFiles(directory):
 
 
 if __name__ == '__main__':
-    ### Choose which chuk and frame to be loaded here
-    section = 5
-    frame = 550
+    ### Choose which chuk and frame to be loaded here ###
+    section = 9
+    frame = 968
     directory = r'datasets/json/box_plant1/'
-    ###
+    ##########
     files = listFiles(directory)
     files.sort()
     path = directory + files[section]
@@ -37,7 +35,7 @@ if __name__ == '__main__':
     
     # convert to np array and write to csv for livox data viewer
     points = np.array(data[str(frame)])
-    
+   
     ### Save to csv for visualization
     df_temp = pd.read_csv('local/visualize/dummy.csv')
     # pos_np = pos.numpy()
