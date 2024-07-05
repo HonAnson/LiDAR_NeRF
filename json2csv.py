@@ -19,8 +19,8 @@ def listFiles(directory):
 
 if __name__ == '__main__':
     ### Choose which chuk and frame to be loaded here ###
-    section = 9
-    frame = 968
+    section = 0
+    frame = 60
     directory = r'datasets/json/box_plant1/'
     ##########
     files = listFiles(directory)
