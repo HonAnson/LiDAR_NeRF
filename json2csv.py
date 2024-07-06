@@ -16,11 +16,28 @@ def listFiles(directory):
         print(f"Error: You do not have permission to access the directory '{directory}'.")
         return []
 
+def json2csv(data, frame, out_path):
+    """ Read point cloud from a frame in json and stor in a livox csv"""
+    # convert to np array and write to csv for livox data viewer
+    pts_np = np.array(data[str(frame)])
+   
+    # Load dummy csv
+    df_temp = pd.read_csv('local/visualize/dummy.csv')
+    df_temp = df_temp.head(pts_np.shape[0])
+
+    # write to dummy csv
+    df_temp['X'] = pts_np[:,0]
+    df_temp['Y'] = pts_np[:,1]
+    df_temp['Z'] = pts_np[:,2]
+    df_temp.to_csv('local/visualize/visualize.csv', index=False)
+    print("Data written to ", out_path)
+    return 
+
 
 if __name__ == '__main__':
     ### Choose which chuk and frame to be loaded here ###
     section = 0
-    frame = 60
+    frame = 1
     directory = r'datasets/json/box_plant1/'
     ##########
     files = listFiles(directory)
@@ -32,22 +49,14 @@ if __name__ == '__main__':
         data = json.load(file)
     num_keys = len(data.keys())
     print(f"Data loaded, number of frames = {num_keys}")
+
     
-    # convert to np array and write to csv for livox data viewer
-    points = np.array(data[str(frame)])
-   
-    ### Save to csv for visualization
-    df_temp = pd.read_csv('local/visualize/dummy.csv')
-    # pos_np = pos.numpy()
-    pos_np = points
-    df_temp = df_temp.head(pos_np.shape[0])
-    df_temp['X'] = pos_np[:,0]
-    df_temp['Y'] = pos_np[:,1]
-    df_temp['Z'] = pos_np[:,2]
-    df_temp.to_csv('local/visualize/visualize.csv', index=False)
-    print("Data written to visualize.csv for visualization")
-
-
+    for key in data:
+        out_directory = r'datasets/csv/box_plant1/'
+        out_filename = r'box_plant1_frame' + key + r'.csv'
+        out_path = out_directory + out_filename
+        json2csv(data, int(key), out_path)
+        
 
     
 

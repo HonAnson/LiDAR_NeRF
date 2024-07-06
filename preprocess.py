@@ -59,8 +59,6 @@ def preProcess(name, threshold = 10):
         
         for key in data:
             pts = data[key]
-            
-
         
         # extract frame 0 pointcloud for reference
 
