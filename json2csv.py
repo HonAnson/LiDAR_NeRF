@@ -29,15 +29,15 @@ def json2csv(data, frame, out_path):
     df_temp['X'] = pts_np[:,0]
     df_temp['Y'] = pts_np[:,1]
     df_temp['Z'] = pts_np[:,2]
-    df_temp.to_csv('local/visualize/visualize.csv', index=False)
+    df_temp.to_csv(out_path, index=False)
     print("Data written to ", out_path)
     return 
 
 
 if __name__ == '__main__':
     ### Choose which chuk and frame to be loaded here ###
-    section = 0
-    frame = 1
+    section = 5
+    # frame = 0
     directory = r'datasets/json/box_plant1/'
     ##########
     files = listFiles(directory)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
         out_filename = r'box_plant1_frame' + key + r'.csv'
         out_path = out_directory + out_filename
         json2csv(data, int(key), out_path)
-        
+
 
     
 
