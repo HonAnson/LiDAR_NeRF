@@ -153,17 +153,21 @@ def fullRegistration(pcds, max_correspondence_distance_coarse = 0.3,
 
 
 
+
+
+
 if __name__ == "__main__":
     ### Choose directory here
     directory = r'datasets/csv/box_plant1_manual/'
     files = listFiles(directory)
+    files.sort()
     pcds = []
     for file in files:
         path = directory + file
         pcds.append(loadData(path))
     
-    poseGraph = fullRegistration(pcds)
-    
+    pose_graph = fullRegistration(pcds)
+    breakpoint()
     
     ### For handling manual point clouds
     # path1 = r'datasets/csv/box_plant1_manual/box_plant1_manual_frame0.csv'
