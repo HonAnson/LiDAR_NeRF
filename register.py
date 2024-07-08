@@ -82,11 +82,7 @@ def drawRegistrationResult(source, target, transformation):
     return
 
 
-def registerPair(path1, path2, draw_result = False):
-    source = loadData(path1)
-    target = loadData(path2)
-    
- 
+def homeMadePairwiseRegistration(source, target, draw_result = False):
     # Conduct downsampling and get point cloud fpfh
     voxel_size=0.05
     source_down, source_fpfh = preprocessPointCloud(source, voxel_size)
@@ -96,7 +92,7 @@ def registerPair(path1, path2, draw_result = False):
     local_reg_result = localRegistration(global_reg_result, source_down, target_down)
     if draw_result is True:
         drawRegistrationResult(source_down, target_down, local_reg_result.transformation)
-    return local_reg_result
+    return local_reg_result, np.eye(6)      ### NOTE: dummy variable for information matrix
 
 
 
@@ -127,7 +123,9 @@ def fullRegistration(pcds, max_correspondence_distance_coarse = 0.3,
     n_pcds = len(pcds)
     for source_id in range(n_pcds):
         for target_id in range(source_id + 1, n_pcds):
-            transformation_icp, information_icp = pairwiseRegistration(
+            # transformation_icp, information_icp = pairwiseRegistration(
+            #     pcds[source_id], pcds[target_id])
+            transformation_icp, information_icp = homeMadePairwiseRegistration(
                 pcds[source_id], pcds[target_id])
             print("Build o3d.pipelines.registration.PoseGraph")
             if target_id == source_id + 1:  # odometry case
@@ -152,12 +150,8 @@ def fullRegistration(pcds, max_correspondence_distance_coarse = 0.3,
 
 
 
-
-
-
-
 if __name__ == "__main__":
-    ### Choose directory here
+    ### Choose loading directory here
     directory = r'datasets/csv/box_plant1_manual/'
     files = listFiles(directory)
     files.sort()
@@ -167,7 +161,11 @@ if __name__ == "__main__":
         pcds.append(loadData(path))
     
     pose_graph = fullRegistration(pcds)
-    breakpoint()
+
+    ### Save posegraph to output
+
+    
+    
     
     ### For handling manual point clouds
     # path1 = r'datasets/csv/box_plant1_manual/box_plant1_manual_frame0.csv'
