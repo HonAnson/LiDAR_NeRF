@@ -62,8 +62,6 @@ def preProcess(name, threshold = 10):
         
         # extract frame 0 pointcloud for reference
 
-
-    
     return
 
 
