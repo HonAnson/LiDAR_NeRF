@@ -7,7 +7,7 @@ import json
 
 if __name__ == '__main__':
     # Open the bag file
-    file_name = r'2024-06-26-15-17-01'
+    file_name = r'box_plant2'
     path = r'datasets/hand_collected2/' + file_name + r'.bag'
     bag = rosbag.Bag(path)
     
@@ -15,9 +15,10 @@ if __name__ == '__main__':
     count = 0
     start_frame = 0
     output = {}
+    # breakpoint()
     for topic, msg, t in bag.read_messages():
         if topic == '/livox/lidar':
-            ### for reading livox bag files
+            ## for reading livox bag files
             pc = msg.points
             output[count] = []
             for point in pc:
@@ -33,7 +34,7 @@ if __name__ == '__main__':
             #     output[count].append(point)
             # count += 1
             
-            # save dictionary into json file every 10 frame
+            # save dictionary into json file every 100 frame
             if count % 100 == 0:
                 output_path = r'datasets/json/' + file_name + r'/' + file_name + r'_frame' + str(start_frame) + r'_' + str(count) + r'.json'
                 with open(output_path, "w") as outfile: 
@@ -41,6 +42,7 @@ if __name__ == '__main__':
                 output = {}
                 start_frame = count
 
+    # save the remaining into a json file
     output_path = r'datasets/json/' + file_name + r'/' + file_name + r'_frame' + str(start_frame) + r'_' + str(count) + r'.json'
     with open(output_path, "w") as outfile: 
         json.dump(output, outfile)
