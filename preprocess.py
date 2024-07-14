@@ -30,6 +30,12 @@ def shortPassFilter(points, threshold = 10):
     mask = distance < threshold
     return points[mask]
 
+def longtPassFilter(points, threshold = 0.1):
+    """ Filter points that are further than a distance away"""
+    distance = (points[:,0]**2 + points[:,1]**2 + points[:,2]**2)**0.5
+    mask = distance > threshold
+    return points[mask]
+
 
 def preProcess(name, threshold = 10):
     
@@ -63,8 +69,6 @@ def preProcess(name, threshold = 10):
         # extract frame 0 pointcloud for reference
 
     return
-
-
 
 if __name__ == "__main__":
     preProcess('box_plant1', threshold = 5)
