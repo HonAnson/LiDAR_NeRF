@@ -57,36 +57,36 @@ def transformPointCloud(point_cloud, translation, quaternion):
 
 def registerFromSlam(paths_pcd, path_pose):
     output = {}
-    frame_counter = 0
+    frame_idx = 0
     # load poses
     with open(path_pose,'r') as file:
         poses = json.load(file)
     pose_keys = list(poses.keys())
+    pose_keys.sort()
 
     for path_pcd in paths_pcd:
         with open(path_pcd,'r') as file:
             pcds = json.load(file)
 
-        for key_pcd in pcds:
-            print(frame_counter)
+        for pcd_key in pcds:
+            print(frame_idx)
             # skip the first 5 frames, as they are to be discarded
-            if frame_counter < 5:
-                frame_counter += 1
+            if frame_idx < 5:
+                frame_idx += 1
                 continue
             try:
-                key_pose = pose_keys[frame_counter - 5]
-                pcd = np.array(pcds[key_pcd])
-                translation = np.array(poses[key_pose]['translation'])
-                rotation = np.array(poses[key_pose]['rotation'])
+                pcd = np.array(pcds[pcd_key])
+                pose_key = pose_keys[frame_idx - 5]
+                translation = np.array(poses[pose_key]['translation'])
+                rotation = np.array(poses[pose_key]['rotation'])
 
                 pcd = shortPassFilter(pcd)
                 pcd = transformPointCloud(pcd, translation, rotation)
+                output[frame_idx] = pcd.tolist()
+                frame_idx += 1
 
-                output[frame_counter] = pcd.tolist()
-
-                frame_counter += 1
             except:
-                frame_counter += 1
+                frame_idx += 1
     return output
 
 
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     path_pose = r'datasets/pose/' + name + r'_pose.json'
 
     registered_pcd = registerFromSlam(paths_pcd, path_pose)
-    with open("testing.json", "w") as outfile: 
+    with open("testing3.json", "w") as outfile: 
         json.dump(registered_pcd, outfile)
 
 
