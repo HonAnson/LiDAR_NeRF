@@ -7,7 +7,7 @@ import open3d as o3d
 import pandas as pd
 import os
 import copy
-from preprocess import listFiles, shortPassFilter
+from preprocess import listFiles, shortPassFilter, longtPassFilter
 
 
 
@@ -80,9 +80,10 @@ def registerFromSlam(paths_pcd, path_pose):
                 translation = np.array(poses[pose_key]['translation'])
                 rotation = np.array(poses[pose_key]['rotation'])
 
-                pcd = shortPassFilter(pcd)
+                pcd = shortPassFilter(pcd, 20)
+                pcd = longtPassFilter(pcd)
                 pcd = transformPointCloud(pcd, translation, rotation)
-                output[frame_idx] = pcd.tolist()
+                output[frame_idx] = {'point_cloud':pcd.tolist(), 'pose':translation.tolist()}
                 frame_idx += 1
 
             except:
@@ -92,15 +93,14 @@ def registerFromSlam(paths_pcd, path_pose):
 
 
 if __name__ == "__main__":
-    name = r'box_plant2'
+    name = r'building'
     directory_pdc = r'datasets/json/' + name + r'/'
     files_pcd = listFiles(directory_pdc)
     files_pcd.sort()
     paths_pcd = [directory_pdc + file_name for file_name in files_pcd]
     path_pose = r'datasets/pose/' + name + r'_pose.json'
-
     registered_pcd = registerFromSlam(paths_pcd, path_pose)
-    with open("testing3.json", "w") as outfile: 
+    with open("building.json", "w") as outfile: 
         json.dump(registered_pcd, outfile)
 
 
