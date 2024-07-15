@@ -103,6 +103,16 @@ def registerFromSlam(paths_pcd, path_pose):
     return output
 
 
+def quickVizReg(source, target):
+    pcd1 = o3d.geometry.PointCloud()
+    pcd2 = o3d.geometry.PointCloud()
+    pcd1.points = o3d.utility.Vector3dVector(source)
+    pcd2.points = o3d.utility.Vector3dVector(target)
+    pcd1.paint_uniform_color([1, 0, 0])
+    pcd2.paint_uniform_color([0, 0.651, 0.929])
+    o3d.visualization.draw_geometries([pcd1,pcd2])
+
+
 
 if __name__ == "__main__":
     name = r'building'
@@ -112,11 +122,18 @@ if __name__ == "__main__":
     paths_pcd = [directory_pdc + file_name for file_name in files_pcd]
     path_pose = r'datasets/pose/' + name + r'_pose.json'
     registered_pcd = registerFromSlam(paths_pcd, path_pose)
+    output_path = r'datasets/registered/' + name + r'.json'
     with open("building.json", "w") as outfile: 
         json.dump(registered_pcd, outfile)
 
 
-
+    # Uncomment for visualization
+    with open(output_path,'r') as file:
+        temp = json.load(file)
+    k = list(temp.keys())
+    a = np.array(temp[k[209]]['point_cloud'])
+    b = np.array(temp[k[400]]['point_cloud'])
+    quickVizReg(a,b)
 
 
 
