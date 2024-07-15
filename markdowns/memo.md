@@ -92,6 +92,11 @@
 - Also used manual registering of the data, whcich shall improve reconstruction quality
 
 
+
+
+
+
+
 ### TODO
 * check whether upSampling() is working properly, where we are always using the smaller angle
 
