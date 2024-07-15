@@ -8,45 +8,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import torch.optim as optim
 import math
+import json
 
 
-# Load data from dataset directory, filterout irralevent datas
-# def loadData():
-#     # Specify the directory path
-#     dataset_path = 'datasets/testing1'
-#     # List all files in the specified path, ignoring directories
-#     files = [f for f in os.listdir(dataset_path) if os.path.isfile(os.path.join(dataset_path, f))]
-#     files.sort()
-#     # read the files
-#     points_xyz = []
-#     for s in files:
-#         path = dataset_path + s
-#         df = pd.read_csv(path)
-#         a = df.to_numpy()
-#         b = a[:,8:11]
-#         points_xyz.append(b)
-#     return points_xyz   # type = list
-
-
-### Process the data
-# def prepareData(points_xyz):
-#     # (1) Convert to spherical coorindate
-#     # NOTE: points in spherical coordinate are arranged: [r, elev, pan]
-#     points_sphere = []
-#     for points in points_xyz:
-#         points_sphere.append(cart2sph(points))
-
-#     #### HARD CODED HERE ####
-#     # Translation vectors for points in each view, we are using camera centre at first frame as origin of world coordinate
-#     # NOTE: translation vectors below are found by assuming transformation between frames are translations, and obatined by manually finding corrspondance
-#     # They are translation of the same corrspondance across different frames
-#     t0 = np.array([0,0,0])
-#     t1 = np.array([-0.671,-0.016,0.215])
-#     t2 = np.array([-1.825,-0.091,0.147])
-#     t3 = np.array([-2.661,-0.263,0.166])
-#     t4 = np.array([-3.607,-0.156,0.039])
-#     translations = [t0, t1, t2, t3, t4]
-#     return dataset   # type = numpyArray
 
 
 

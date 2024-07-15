@@ -7,10 +7,22 @@ import open3d as o3d
 import pandas as pd
 import os
 import copy
-from preprocess import listFiles, shortPassFilter, longtPassFilter
+from preprocess import listFiles
 
 
 
+def shortPassFilter(points, threshold = 10):
+    """ Filter points that are further than a distance away"""
+    distance = (points[:,0]**2 + points[:,1]**2 + points[:,2]**2)**0.5
+    mask = distance < threshold
+    return points[mask]
+
+
+def longtPassFilter(points, threshold = 0.1):
+    """ Filter points that are closer than a distance"""
+    distance = (points[:,0]**2 + points[:,1]**2 + points[:,2]**2)**0.5
+    mask = distance > threshold
+    return points[mask]
 
 def quat2RotationMatrix(q):
     """
@@ -102,6 +114,9 @@ if __name__ == "__main__":
     registered_pcd = registerFromSlam(paths_pcd, path_pose)
     with open("building.json", "w") as outfile: 
         json.dump(registered_pcd, outfile)
+
+
+
 
 
 
