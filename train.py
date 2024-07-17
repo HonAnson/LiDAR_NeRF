@@ -7,10 +7,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import torch.optim as optim
 import json
-from tqdm import tqdm       # for showing progress when training
-import open3d as o3d        # for getting point cloud register
+# from tqdm import tqdm       # for showing progress when training
+# import open3d as o3d        # for getting point cloud register
 from einops import rearrange, repeat
 from numpy import sin, cos
+from utility import printProgress
 
 def getSpacing(num_points, num_bins):
     """return a [num_points*num_bins, 1] pytorch tensor
@@ -28,7 +29,7 @@ def getSpacing(num_points, num_bins):
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
 
     # apply inverse sigmoid function to even spacing
-    t = torch.log(t / (1 - t))  
+    t = torch.log(t / (1 - t) + 10e-8)  
     t = rearrange(t, 'a b -> (a b) 1')  # [num_bins, batch_size]  transpose for multiplication broadcast
     return t  
 
@@ -37,7 +38,7 @@ def getSamples(centres, angles, r, num_bins = 100):
     elev = angles[:,0]
     pan = angles[:,1]
     x_tilde, y_tilde, z_tilde = cos(elev)*cos(pan), cos(elev)*sin(pan), sin(elev)      
-    unit_vectors = torch.tensor([x_tilde, y_tilde, z_tilde])
+    unit_vectors = torch.vstack([x_tilde, y_tilde, z_tilde])
 
     # process vectors: [3, num_points] -> [num_points*num_bins, 3]
     unit_vectors_repeated = repeat(unit_vectors, 'c n -> (n b) c', b = num_bins)
@@ -195,18 +196,19 @@ class LiDAR_NeRF(nn.Module):
         return output
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(1e5), num_bins = 100):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100):
     training_losses = []
-    for _ in tqdm(range(epoch)):
-        for batch in dataloader:
+    num_batch_in_data = len(dataloader)
+    for epoch in range(num_epoch):
+        for iter, batch in enumerate(dataloader):
+
             # parse the batch
             ground_truth_distance = batch[:,0]
             angles = batch[:,1:3]
             origins = batch[:,3:6]
 
-            upsample_pos, upsample_ang, upsample_gt_distance = getUpSamples(origins, angles, ground_truth_distance, num_rolls=0)
             sample_pos, sample_ang, sample_org = getSamples(origins, angles, ground_truth_distance, num_bins=num_bins)
-            
+            upsample_pos, upsample_ang, upsample_gt_distance = getUpSamples(origins, angles, ground_truth_distance, num_rolls=0)
             # tile distances
             gt_distance_tiled = repeat(ground_truth_distance, 'b -> (b n) 1', n=num_bins)
 
@@ -215,7 +217,6 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(
             ang = (torch.vstack((sample_ang, upsample_ang))).to(device)
             gt_dis = (torch.vstack((gt_distance_tiled,upsample_gt_distance))).to(device)
             org = (torch.vstack((sample_org, upsample_pos))).to(device)
-            breakpoint()
             
             # inference
             rendered_value = model(pos, ang)
@@ -225,12 +226,22 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(
             # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
 
             # back propergate
+            # print("iter: ", iter)
+            # print("max rendered: ", max(rendered_value_sigmoid))
+            # print("min rendered: ", min(rendered_value_sigmoid))
+            # print("max gt: ", max(actual_value_sigmoided))
+            # print("min gt: ", min(actual_value_sigmoided))
+            
             loss_bce = nn.BCELoss()
             loss = loss_bce(rendered_value_sigmoid, actual_value_sigmoided)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
             training_losses.append(loss.item())
+            message = f"training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()})"
+            printProgress(message)
+
         scheduler.step()
     return training_losses
 
@@ -256,7 +267,7 @@ if __name__ == "__main__":
     model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15).to(device)
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
-    losses = train(model, optimizer, scheduler, data_loader, epoch = 8, device=device)
+    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 8, device=device)
 
     ### Save the model
-    # torch.save(model.state_dict(), 'local/models/version4_trial0.pth')
+    # torch.save(model.state_dict(), 'local/models/version4_trial1.pth')

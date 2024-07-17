@@ -15,19 +15,10 @@ def listFiles(directory):
         print(f"Error: You do not have permission to access the directory '{directory}'.")
         return []
 
-def clearLinePrintStuff(message):
-    """
-    Deletes the previous line in the terminal and prints a new custom message.
-    Parameters:
-    message (str): The new message to print.
-    """
-    # Move the cursor up one line and clear the line
-    sys.stdout.write('\033[F\033[K')
-    sys.stdout.flush()
-    
-    # Print the new message
-    sys.stdout.write(message + '\n')
-    sys.stdout.flush()
+def printProgress(message):
+    toprint = "\r" + message
+    print(toprint, end = "")
+    return
 
 
 if __name__ == "__main__":

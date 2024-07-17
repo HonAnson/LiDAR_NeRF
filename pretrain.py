@@ -2,7 +2,7 @@ import json
 import numpy as np
 import os
 from einops import rearrange
-from utility import clearLinePrintStuff
+from utility import printProgress
 from numpy import sqrt, arctan2, array
 # import open3d as o3d
 
@@ -57,7 +57,8 @@ def preProcess(data):
         pcd_with_pose_position = np.hstack((pcd_sph, pose_position_array))
         output = np.vstack((output, pcd_with_pose_position))
         if iter % 50 == 0:
-            print(f"\rPreparing data ... ({iter}/{total_iter})", end = "")
+            message = f"Preparing data ... ({iter}/{total_iter})"
+            printProgress(message)
         iter += 1
     return output[1:,:]
 
