@@ -2,6 +2,8 @@ import json
 import numpy as np
 import os
 from einops import rearrange
+from utility import clearLinePrintStuff
+from numpy import sqrt, arctan2, array
 # import open3d as o3d
 
 """ Preprocess data including:
@@ -14,26 +16,33 @@ from einops import rearrange
 
 
 def loadDataFromRegisteredSlam(path):
-    # load registered file
+    # load file of registered point cloud
     with open(path,'r') as file:
         data = json.load(file)
     return data
 
 
 def cart2sph(pcd_array, pose_position):
+    """ Convert a n*3 point cloud, 
+    with camera centre at pose_position from cartesian coordinate in global frame
+    to global algined spherical coordinate at camera frame
+    
+    """
     pcd_local_aligned = pcd_array - pose_position
-    x = pcd_local_aligned[:,0]
-    y = pcd_local_aligned[:,1]
-    z = pcd_local_aligned[:,2]
+    x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
     XsqPlusYsq = x**2 + y**2
-    r = np.sqrt(list(XsqPlusYsq + z**2))
-    elev = np.arctan2(list(z), np.sqrt(list(XsqPlusYsq)))
-    pan = np.arctan2(list(x), list(y))
-    output = np.array([r, elev, pan])
+    r = sqrt(XsqPlusYsq + z**2)
+    elev = arctan2(z, sqrt(XsqPlusYsq))
+    pan = arctan2(y, x)
+    output = array([r, elev, pan])
     return rearrange(output, 'a b -> b a') #take transpose
 
 
 def preProcess(data):
+    """Transform registered point clouds into giant array for model training
+    input: data of type dict, with keys = frames
+    output: n*6 numpy array
+    """
     keys = list(data.keys())
     output = np.zeros((1,6))
     iter = 0
@@ -48,7 +57,7 @@ def preProcess(data):
         pcd_with_pose_position = np.hstack((pcd_sph, pose_position_array))
         output = np.vstack((output, pcd_with_pose_position))
         if iter % 50 == 0:
-            print(f"Preparing data .. ({iter}/{total_iter})")
+            print(f"\rPreparing data ... ({iter}/{total_iter})", end = "")
         iter += 1
     return output[1:,:]
 
@@ -59,9 +68,9 @@ if __name__ == "__main__":
     path = r'datasets/registered/' + name + r'.json'
     data = loadDataFromRegisteredSlam(path)
     training_data = preProcess(data)
-    output_name = name + r'.npy'
-    np.save(output_name, training_data)
-    print(f"file have been saved to {output_name}")
+    # output_name = name + r'.npy'
+    # np.save(output_name, training_data)
+    # print(f"file have been saved to {output_name}")
 
 
     

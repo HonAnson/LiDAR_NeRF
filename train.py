@@ -203,6 +203,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(
 
             upsample_pos, upsample_ang, upsample_gt_distance = getUpSamples(origins, angles, ground_truth_distance, num_rolls=0)
             sample_pos, sample_ang, sample_org = getSamples(origins, angles, ground_truth_distance, num_bins=num_bins)
+            
             # tile distances
             gt_distance_tiled = repeat(ground_truth_distance, 'b -> (b n) 1', n=num_bins)
 
@@ -211,6 +212,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(
             ang = (torch.vstack((sample_ang, upsample_ang))).to(device)
             gt_dis = (torch.vstack((gt_distance_tiled,upsample_gt_distance))).to(device)
             org = (torch.vstack((sample_org, upsample_pos))).to(device)
+            breakpoint()
             
             # inference
             rendered_value = model(pos, ang)
@@ -218,6 +220,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(
             rendered_value_sigmoid = sigmoid(rendered_value)
             actual_value_sigmoided = (getTargetValues(pos, gt_dis, org)).to(dtype = torch.float32)
             # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
+
             # back propergate
             loss_bce = nn.BCELoss()
             loss = loss_bce(rendered_value_sigmoid, actual_value_sigmoided)
@@ -226,7 +229,6 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', epoch = int(
             optimizer.step()
             training_losses.append(loss.item())
         scheduler.step()
-        print(loss.item())
     return training_losses
 
 
@@ -254,4 +256,4 @@ if __name__ == "__main__":
     losses = train(model, optimizer, scheduler, data_loader, epoch = 8, device=device)
 
     ### Save the model
-    torch.save(model.state_dict(), 'local/models/version4_trial0.pth')
+    # torch.save(model.state_dict(), 'local/models/version4_trial0.pth')
