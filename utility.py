@@ -1,5 +1,6 @@
 import os
-
+import sys
+import time
 
 
 def listFiles(directory):
@@ -13,6 +14,20 @@ def listFiles(directory):
     except PermissionError:
         print(f"Error: You do not have permission to access the directory '{directory}'.")
         return []
+
+def clearLinePrintStuff(message):
+    """
+    Deletes the previous line in the terminal and prints a new custom message.
+    Parameters:
+    message (str): The new message to print.
+    """
+    # Move the cursor up one line and clear the line
+    sys.stdout.write('\033[F\033[K')
+    sys.stdout.flush()
+    
+    # Print the new message
+    sys.stdout.write(message + '\n')
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":

@@ -79,13 +79,13 @@
 - Used MSE loss instead of sigmoid and BCE loss
 - Achieved similar result with sigmoid and BCE loss
 
+## Version 3
+- Trying to use space wrapping 
+- In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
 ### Trial 1
 - attempt to use polar coordinate for training, doesn't appear to improve loss value
 - Reconstruction quality lower than using cartisian coordinate
 
-## Version 3
-- Trying to use space wrapping 
-- In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
 
 ### Trial 2
 - Applied wrapping with radius 10 around [0,0,0], hopefully would help
@@ -93,7 +93,9 @@
 
 
 
-
+## Version 4
+- Tried using same model as previou part, but using object centered data
+- Didn't achieve any good result
 
 
 
