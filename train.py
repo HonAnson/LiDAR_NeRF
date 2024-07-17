@@ -10,18 +10,15 @@ import json
 from tqdm import tqdm       # for showing progress when training
 import open3d as o3d        # for getting point cloud register
 from einops import rearrange, repeat
+from numpy import sin, cos
 
-
-def getSamples(origins, angles, ground_truth_distance, num_bins = 100):
-    elev = angles[:,0]
-    pan = angles[:,1]
-    dir_x = torch.tensor(np.cos(elev)*np.cos(pan))      # [batch_size]
-    dir_y = torch.tensor(np.cos(elev)*np.sin(pan))      # [batch_size]
-    dir_z = torch.tensor(np.sin(elev))
-    gt_tensor = torch.tensor(ground_truth_distance)
-
+def getSpacing(num_points, num_bins):
+    """return a [num_points*num_bins, 1] pytorch tensor
+    
+    """
+    # TODO: add hyperparameter for tuning "slope" of inverse sigmoid function
     # create a list of magnitudes with even spacing from 0 to 1
-    t = torch.linspace(0,1, num_bins//2).expand(dir_x.shape[0], num_bins//2)  # [batch_size, num_bins//2]
+    t = torch.linspace(0,1, num_bins).expand(num_points, num_bins)  # [batch_size, num_bins//2]
     
     # preterb the spacing
     mid = (t[:, :-1] + t[:, 1:]) / 2.
@@ -29,28 +26,34 @@ def getSamples(origins, angles, ground_truth_distance, num_bins = 100):
     upper = torch.cat((mid, t[:, -1:]), -1)
     u = torch.rand(t.shape)
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
-    
-    # multiply the magnitude to ground truth distance and add 3 meter
-    t = torch.sqrt(t)
-    t = torch.sqrt(t)
-    t2 = 2 - t
-    t = torch.hstack((t, t2))       #[]
-    t = rearrange(t, 'a b -> b a')  # [num_bins, batch_size]  transpose for multiplication broadcast
-    t = gt_tensor*t
 
-    # convert magnitudes into positions by multiplying it to the unit vector
-    pos_x = dir_x*t     # [num_bins, batch_size]
-    pos_y = dir_y*t
-    pos_z = dir_z*t
+    # apply inverse sigmoid function to even spacing
+    t = torch.log(t / (1 - t))  
+    t = rearrange(t, 'a b -> (a b) 1')  # [num_bins, batch_size]  transpose for multiplication broadcast
+    return t  
 
-    # concat them for output
-    multiplied = rearrange([pos_x,pos_y,pos_z], 'c b n  -> (n b) c')   # [num_bin*batchsize, 3]
+def getSamples(centres, angles, r, num_bins = 100):
+    num_points = r.shape[0]
+    elev = angles[:,0]
+    pan = angles[:,1]
+    x_tilde, y_tilde, z_tilde = cos(elev)*cos(pan), cos(elev)*sin(pan), sin(elev)      
+    unit_vectors = torch.tensor([x_tilde, y_tilde, z_tilde])
+
+    # process vectors: [3, num_points] -> [num_points*num_bins, 3]
+    unit_vectors_repeated = repeat(unit_vectors, 'c n -> (n b) c', b = num_bins)
+    r_repeated = repeat(r, 'n -> (n b) 1', b = num_bins)
+    t = getSpacing(num_points, num_bins)
+    sample_magnitudes = t + r_repeated
+    pos = unit_vectors_repeated*sample_magnitudes      # [num_bins*num_points, 3]
+
     # tile the origin values
-    origins_tiled = repeat(origins, 'n c -> (n b) c', b = num_bins) # [num_bin*batch_size, 3]
-    pos = torch.tensor(origins_tiled) + multiplied
+    centres_tiled = torch.tensor(repeat(centres, 'n c -> (n b) c', b = num_bins)) # [num_bin*batch_size, 3]
+    # complete getting sample position by adding camera centre position to sampled position
+    pos = centres_tiled + pos
+
     # tile the angle too
     angles_tiled = torch.tensor(repeat(angles, 'n c -> (n b) c', b = num_bins))
-    return pos, angles_tiled, origins_tiled
+    return pos, angles_tiled, centres_tiled
 
 
 
