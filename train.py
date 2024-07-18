@@ -27,10 +27,12 @@ def getSpacing(num_points, num_bins):
     upper = torch.cat((mid, t[:, -1:]), -1)
     u = torch.rand(t.shape)
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
-
+    # hard code start and end value of spacing to avoid infinity
+    t[:,0] = 1e-4
+    t[:,-1] = 0.995
     # apply inverse sigmoid function to even spacing
-    t = torch.log(t / (1 - t) + 10e-8)  
-    t = rearrange(t, 'a b -> (a b) 1')  # [num_bins, batch_size]  transpose for multiplication broadcast
+    t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
+    t = torch.log(t / ((1 - t) + 1e-8))  
     return t  
 
 def getSamples(centres, angles, r, num_bins = 100):
@@ -48,8 +50,8 @@ def getSamples(centres, angles, r, num_bins = 100):
     pos = unit_vectors_repeated*sample_magnitudes      # [num_bins*num_points, 3]
 
     # tile the origin values
-    centres_tiled = torch.tensor(repeat(centres, 'n c -> (n b) c', b = num_bins)) # [num_bin*batch_size, 3]
     # complete getting sample position by adding camera centre position to sampled position
+    centres_tiled = torch.tensor(repeat(centres, 'n c -> (n b) c', b = num_bins)) # [num_bin*batch_size, 3]
     pos = centres_tiled + pos
 
     # tile the angle too
@@ -199,6 +201,7 @@ class LiDAR_NeRF(nn.Module):
 def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100):
     training_losses = []
     num_batch_in_data = len(dataloader)
+    count = 0
     for epoch in range(num_epoch):
         for iter, batch in enumerate(dataloader):
 
@@ -225,21 +228,17 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             actual_value_sigmoided = (getTargetValues(pos, gt_dis, org)).to(dtype = torch.float32)
             # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
 
-            # back propergate
-            # print("iter: ", iter)
-            # print("max rendered: ", max(rendered_value_sigmoid))
-            # print("min rendered: ", min(rendered_value_sigmoid))
-            # print("max gt: ", max(actual_value_sigmoided))
-            # print("min gt: ", min(actual_value_sigmoided))
-            
             loss_bce = nn.BCELoss()
             loss = loss_bce(rendered_value_sigmoid, actual_value_sigmoided)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            training_losses.append(loss.item())
-            message = f"training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()})"
+            ### Prin loss messages
+            if count % 50 == 0:
+                training_losses.append(loss.item())
+            count += 1
+            message = f"training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()}"
             printProgress(message)
 
         scheduler.step()
@@ -268,6 +267,8 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
     losses = train(model, optimizer, scheduler, data_loader, num_epoch = 8, device=device)
+    losses_np = np.array(losses)
+    print("Training completed.")
 
     ### Save the model
-    # torch.save(model.state_dict(), 'local/models/version4_trial1.pth')
+    torch.save(model.state_dict(), 'local/models/version4_trial1.pth')

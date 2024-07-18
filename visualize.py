@@ -5,6 +5,7 @@ from train import LiDAR_NeRF
 from einops import repeat, rearrange
 from numpy import cos, sin, array
 import pandas as pd
+from utility import printProgress
 
 def sph2cart(ang):
     ele = ang[:,0]
@@ -16,7 +17,7 @@ def sph2cart(ang):
     return rearrange(output, 'a b -> b a') #take transpose
 
 
-def visualize(model_path, output_path):
+def visualize360(model_path, output_path):
     """ Visualize reconstruction from model and position"""
     #### Load the model and try to "visualize" the model's datapoints
     model_evel = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15, device = 'cpu')
@@ -40,7 +41,8 @@ def visualize(model_path, output_path):
             output2 = model_evel(pos, ang)
             temp = torch.sign(output2)
             pos += directions * dist * temp
-            print(f'visualizing... ({i}/100)')
+            printProgress(f'visualizing... ({i}/100)')
+            # print(f'visualizing... ({i}/100)')
 
     ### Save to csv for visualization
     df_temp = pd.read_csv('local/visualize/dummy.csv')
@@ -53,10 +55,13 @@ def visualize(model_path, output_path):
     return
 
 
+def visualize(model_path, output_path):
+    return
+
 if __name__ == "__main__":
-    model_path = r'local/models/version4_trial0.pth'
+    model_path = r'local/models/version4_trial1.pth'
     output_path = r'local/visualize/visualize.csv'
-    visualize(model_path,output_path)
+    visualize360(model_path,output_path)
 
 
 

@@ -79,9 +79,10 @@
 - Used MSE loss instead of sigmoid and BCE loss
 - Achieved similar result with sigmoid and BCE loss
 
-## Version 3
+## Version 
 - Trying to use space wrapping 
 - In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
+- 
 ### Trial 1
 - attempt to use polar coordinate for training, doesn't appear to improve loss value
 - Reconstruction quality lower than using cartisian coordinate
@@ -92,15 +93,28 @@
 - Also used manual registering of the data, whcich shall improve reconstruction quality
 
 
-
 ## Version 4
+- Using object centered data, that is known to be more suitable for nerf models
+- Data are collected manually
+
+### Trial 1
 - Tried using same model as previou part, but using object centered data
-- Didn't achieve any good result
+- Didn't achieve any good result compared to previous method
+
+### Trial 2
+- Fixed logic bug in sampling
+- Using updated sampling method (inverse sigmoid from univorm distribution)
+- Unable to judge well reconstruction result due to lack of visualization function
+
 
 
 
 ### TODO
 * check whether upSampling() is working properly, where we are always using the smaller angle
+* Work on visualization
+* Figure out how to use HPC in campus
+* Work on adding wrapping to the model
+
 
 ### Note to self:
 1. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
