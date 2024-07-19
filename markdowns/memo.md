@@ -107,7 +107,13 @@
 - Fixed logic bug in sampling
 - Using updated sampling method (inverse sigmoid from univorm distribution)
 - Unable to judge well reconstruction result due to lack of visualization function
-- Trained model with 8 epoch
+- Trained model with 8 epoch, batchsize 1024
+
+### Trial 2
+- Settings same as v4trial1, but trained on round plant data, which has better registeration
+- Trained model with 16 epoch, used around 12 hours on nvidia 3050gpu, batchsize 1024
+
+
 
 ### TODO
 * check whether upSampling() is working properly, where we are always using the smaller angle

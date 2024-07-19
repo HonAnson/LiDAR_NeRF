@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import open3d as o3d
 
 
 def listFiles(directory):
@@ -20,6 +21,15 @@ def printProgress(message):
     print(toprint, end = "")
     return
 
+
+def quickVizNumpy(points):
+    # Convert the numpy array to an Open3D PointCloud object
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+
+    # Visualize the point cloud
+    o3d.visualization.draw_geometries([pcd])
+    return
 
 if __name__ == "__main__":
     pass

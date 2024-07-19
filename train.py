@@ -13,6 +13,19 @@ from einops import rearrange, repeat
 from numpy import sin, cos
 from utility import printProgress
 
+def getDirections(angles):
+    """ Convert torch tensor of angles to 
+    cartiseian coordinate unit vector pointing that direction
+    """
+    elev, pan = angles[:,0], angles[:,1]
+    x_tilde, y_tilde, z_tilde = cos(elev)*cos(pan), cos(elev)*sin(pan), sin(elev)      
+    unit_vectors = torch.vstack([x_tilde, y_tilde, z_tilde])
+    return unit_vectors
+
+
+
+
+
 def getSpacing(num_points, num_bins):
     """return a [num_points*num_bins, 1] pytorch tensor
     
@@ -238,7 +251,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             if count % 100 == 0:
                 training_losses.append(loss.item())
             count += 1
-            message = f"training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()}"
+            message = f"Training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()}"
             printProgress(message)
 
         scheduler.step()
@@ -259,7 +272,7 @@ if __name__ == "__main__":
     data_path = r'datasets/training/round_plant2.npy'
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
-    print("loaded data")
+    print("Loaded data")
     training_data_torch = torch.from_numpy(training_data_np)
 
     data_loader = DataLoader(training_data_torch, batch_size=1024, shuffle = True)
@@ -268,7 +281,7 @@ if __name__ == "__main__":
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
     losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
     losses_np = np.array(losses)
-    print("Training completed.")
+    print("\nTraining completed.")
 
     ### Save the model
     torch.save(model.state_dict(), 'local/models/version4_trial2.pth')
