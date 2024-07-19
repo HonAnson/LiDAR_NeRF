@@ -219,30 +219,31 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
         for iter, batch in enumerate(dataloader):
 
             # parse the batch
-            ground_truth_distance = batch[:,0]
+            gt_dist = batch[:,0]
             angles = batch[:,1:3]
-            origins = batch[:,3:6]
+            centers = batch[:,3:6]
 
-            sample_pos, sample_ang, sample_org = getSamples(origins, angles, ground_truth_distance, num_bins=num_bins)
-            upsample_pos, upsample_ang, upsample_gt_distance = getUpSamples(origins, angles, ground_truth_distance, num_rolls=0)
+            sample_pos, sample_ang, sample_org = getSamples(centers, angles, gt_dist, num_bins=num_bins)
+            upsample_pos, upsample_ang, upsample_gt_dist = getUpSamples(centers, angles, gt_dist, num_rolls=0)
+
             # tile distances
-            gt_distance_tiled = repeat(ground_truth_distance, 'b -> (b n) 1', n=num_bins)
+            gt_dist_tiled = repeat(gt_dist, 'b -> (b n) 1', n=num_bins)
 
             # stack the upsampled position to sampled positions
             pos = (torch.vstack((sample_pos, upsample_pos))).to(device)
             ang = (torch.vstack((sample_ang, upsample_ang))).to(device)
-            gt_dis = (torch.vstack((gt_distance_tiled,upsample_gt_distance))).to(device)
+            gt_dist = (torch.vstack((gt_dist_tiled,upsample_gt_dist))).to(device)
             org = (torch.vstack((sample_org, upsample_pos))).to(device)
             
             # inference
             rendered_value = model(pos, ang)
             sigmoid = nn.Sigmoid()
             rendered_value_sigmoid = sigmoid(rendered_value)
-            actual_value_sigmoided = (getTargetValues(pos, gt_dis, org)).to(dtype = torch.float32)
+            actual_value_sigmoided = (getTargetValues(pos, gt_dist, org)).to(dtype = torch.float32)
             # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
 
             loss_bce = nn.BCELoss()
-            loss = loss_bce(rendered_value_sigmoid, actual_value_sigmoided)
+            loss = loss_bce(rendered_value_sigmoid, actual_value_sigmoided)         # + lossEikonal
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -256,8 +257,6 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 
         scheduler.step()
     return training_losses
-
-
 
 
 def runTrain():
