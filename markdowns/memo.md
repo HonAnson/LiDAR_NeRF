@@ -97,17 +97,17 @@
 - Using object centered data, that is known to be more suitable for nerf models
 - Data are collected manually
 
-### Trial 1
+### Trial 0
 - Tried using same model as previou part, but using object centered data
 - Didn't achieve any good result compared to previous method
 
-### Trial 2
+### Trial 1
+- trained model on data box_plant2.npy
+- Using same model architecture
 - Fixed logic bug in sampling
 - Using updated sampling method (inverse sigmoid from univorm distribution)
 - Unable to judge well reconstruction result due to lack of visualization function
-
-
-
+- Trained model with 8 epoch
 
 ### TODO
 * check whether upSampling() is working properly, where we are always using the smaller angle
