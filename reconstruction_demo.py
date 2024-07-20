@@ -35,8 +35,27 @@ y_train = torch.tensor(y_data, dtype=torch.float32).view(-1, 1)
 
 # Initialize the model, loss function, and optimizer
 model = SigmoidFittingModel()
-criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+
+def render_ray(outputs):
+    t = torch.tensor(np.linspace(-10, 10, 100))
+    delta = torch.cat((t[1:] - t[:-1], torch.tensor([1e10])), -1)
+    mid = (t[:-1] + t[1:]) / 2.
+    sigma = outputs * (1 - outputs)
+    alpha = 1 - torch.exp(-sigma * delta)  # [nb_bins]
+    breakpoint()
+    accumulated_transmittance = torch.cumprod(alpha, 1)
+    # weights = compute_accumulated_transmittance(1 - alpha)
+
+
+
+
+
+    rendered_value = 0
+    return rendered_value
+
+
 
 # Training loop
 num_epochs = 5000
@@ -46,7 +65,12 @@ for epoch in range(num_epochs):
     # Forward pass
     sigmoid_ = nn.Sigmoid()
     outputs = sigmoid_(model(x_train))
-    loss = criterion(outputs, y_train)
+    # use output to conduct reconstruction
+    rendered_value = render_ray(y_train)
+
+
+
+    loss = (outputs, y_train)
     
     # Backward pass and optimization
     optimizer.zero_grad()
@@ -61,10 +85,11 @@ model.eval()
 predicted_tensor = sigmoid_(model(x_train))
 predicted_np = predicted_tensor.detach().numpy()
 
-
 # try to also plot the gradient 
 occupancy = predicted_tensor* (1 -predicted_tensor)
 occupancy_np = occupancy.detach().numpy()
+
+
 
 
 plt.figure(figsize=(10, 6))
