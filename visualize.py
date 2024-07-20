@@ -65,7 +65,7 @@ def visualize360(model_path, output_path):
     df_temp['Y'] = pos_np[:,1]
     df_temp['Z'] = pos_np[:,2]
     df_temp.to_csv(output_path, index=False)
-    print(f'Visualizing output saved to {output_path}')
+    print(f'\nVisualizing output saved to {output_path}')
     return
 
 
@@ -113,7 +113,7 @@ def visualizeDir(model_path, output_path, position, direction):
     df_temp['Y'] = pos_np[:,1]
     df_temp['Z'] = pos_np[:,2]
     df_temp.to_csv(output_path, index=False)
-    print(f'Visualizing output saved to {output_path}')
+    print(f'\nVisualizing output saved to {output_path}')
 
     return
 
@@ -122,10 +122,10 @@ if __name__ == "__main__":
     model_path = r'local/models/version4_trial3.pth'
     output_path = r'local/visualize/visualize.csv'
     
-    # visualize360(model_path,output_path)
-    position = array([0,0,0])
-    direction = array([1,0,0])
-    visualizeDir(model_path, output_path, position, direction)
+    visualize360(model_path,output_path)
+    # position = array([0,0,0])
+    # direction = array([1,0,0])
+    # visualizeDir(model_path, output_path, position, direction)
 
 
 # def getUnitVectorfromImage(direction, focal_length, height = 1, width = 1, width_resolution = 1000, height_resolution = 1000):
