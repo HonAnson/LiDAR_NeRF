@@ -119,7 +119,7 @@ def visualizeDir(model_path, output_path, position, direction):
 
 if __name__ == "__main__":
     # NOTE: camera points at [1,0,0] when unrotated
-    model_path = r'local/models/version4_trial2.pth'
+    model_path = r'local/models/version4_trial3.pth'
     output_path = r'local/visualize/visualize.csv'
     
     # visualize360(model_path,output_path)
