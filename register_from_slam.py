@@ -7,7 +7,7 @@ import open3d as o3d
 import pandas as pd
 import os
 import copy
-from preprocess import listFiles
+from utility import listFiles, printProgress
 
 
 
@@ -70,6 +70,7 @@ def transformPointCloud(point_cloud, translation, quaternion):
 def registerFromSlam(paths_pcd, path_pose):
     output = {}
     frame_idx = 0
+    sequence_count = 0
     # load poses
     with open(path_pose,'r') as file:
         poses = json.load(file)
@@ -80,8 +81,10 @@ def registerFromSlam(paths_pcd, path_pose):
         with open(path_pcd,'r') as file:
             pcds = json.load(file)
 
+        printProgress(f"Registering .... sequence: {sequence_count}")
+        sequence_count += 1
         for pcd_key in pcds:
-            print(frame_idx)
+
             # skip the first 5 frames, as they are to be discarded
             if frame_idx < 5:
                 frame_idx += 1
@@ -95,7 +98,7 @@ def registerFromSlam(paths_pcd, path_pose):
                 pcd = shortPassFilter(pcd, 20)
                 pcd = longtPassFilter(pcd)
                 pcd = transformPointCloud(pcd, translation, rotation)
-                output[frame_idx] = {'point_cloud':pcd.tolist(), 'pose':translation.tolist()}
+                output[frame_idx] = {'point_cloud':pcd.tolist(), 'pose_translation':translation.tolist(), 'pose_rotation':rotation.tolist()}
                 frame_idx += 1
 
             except:
@@ -115,25 +118,25 @@ def quickVizReg(source, target):
 
 
 if __name__ == "__main__":
-    name = r'building'
+    name = r'round_plant2'
     directory_pdc = r'datasets/json/' + name + r'/'
     files_pcd = listFiles(directory_pdc)
     files_pcd.sort()
     paths_pcd = [directory_pdc + file_name for file_name in files_pcd]
     path_pose = r'datasets/pose/' + name + r'_pose.json'
     registered_pcd = registerFromSlam(paths_pcd, path_pose)
-    output_path = r'datasets/registered/' + name + r'.json'
-    with open("building.json", "w") as outfile: 
+    output_path = r'datasets/registered/' + name + r'_with_rotation.json'
+    with open(output_path, "w") as outfile: 
         json.dump(registered_pcd, outfile)
 
 
     # Uncomment for visualization
-    with open(output_path,'r') as file:
-        temp = json.load(file)
-    k = list(temp.keys())
-    a = np.array(temp[k[209]]['point_cloud'])
-    b = np.array(temp[k[400]]['point_cloud'])
-    quickVizReg(a,b)
+    # with open(output_path,'r') as file:
+    #     temp = json.load(file)
+    # k = list(temp.keys())
+    # a = np.array(temp[k[209]]['point_cloud'])
+    # b = np.array(temp[k[400]]['point_cloud'])
+    # quickVizReg(a,b)
 
 
 

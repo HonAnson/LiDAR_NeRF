@@ -17,20 +17,17 @@ def sph2cart(ang):
     output = array([x,y,z])
     return rearrange(output, 'a b -> b a') #take transpose
 
-def cart2sph(pcd_array, pose_position):
+def getAng(points):
     """ Convert a n*3 point cloud, 
     with camera centre at pose_position from cartesian coordinate in global frame
     to global algined spherical coordinate at camera frame
     
     """
-    pcd_local_aligned = pcd_array - pose_position
-    x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
+    x, y, z = points[0], points[1], points[2]
     XsqPlusYsq = x**2 + y**2
-    r = sqrt(XsqPlusYsq + z**2)
     elev = arctan2(z, sqrt(XsqPlusYsq))
     pan = arctan2(y, x)
-    output = array([r, elev, pan])
-    return rearrange(output, 'a b -> b a') #take transpose
+    return elev, pan
 
 
 
@@ -74,7 +71,7 @@ def visualize360(model_path, output_path):
 
 
 
-def visualizeDir(model_path, output_path, direction):
+def visualizeDir(model_path, output_path, position, direction):
     """ Visualize reconstruction from model and position"""
     #### Load the model and try to "visualize" the model's datapoints
     model_evel = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15, device = 'cpu')
@@ -82,13 +79,18 @@ def visualizeDir(model_path, output_path, direction):
     model_evel.eval(); # Set the model to inference mode
     
     ### evaluate direction
+    ele_dir, pan_dir = getAng(direction)
+    ele_dir = float(ele_dir)
+    pan_dir = float(pan_dir)
+    position_tiled = repeat(position, 'd-> r d', r = 100000)
 
     ### Render some structured pointcloud for evaluation
     with torch.no_grad():
         dist = 0.05 # initial distanc for visualization
-        pos = torch.zeros((100000,3))
-        ele = torch.linspace(-0.34, 0.3, 100)
-        pan = torch.linspace(-3.14, 3.14, 1000)
+        pos = torch.tensor(position_tiled, dtype = torch.float32)
+        ele = torch.linspace(-0.1, 0.1, 100)
+        pan = torch.linspace(-0.2, 0.2, 1000)
+
         ele_tiled = repeat(ele, 'n -> (r n) 1', r = 1000)
         pan_tiled = repeat(pan, 'n -> (n r) 1', r = 100)
         ang = torch.cat((ele_tiled, pan_tiled), dim=1)
@@ -96,11 +98,12 @@ def visualizeDir(model_path, output_path, direction):
         # direction for each "point" from camera centre
         directions = torch.tensor(sph2cart(array(ang)))
 
-        for i in range(1000):
+        iterations = 1000
+        for i in range(iterations):
             output2 = model_evel(pos, ang)
             temp = torch.sign(output2)
             pos += directions * dist * temp
-            printProgress(f'visualizing... ({i}/100)')
+            printProgress(f'Visualizing... ({i}/{iterations})')
 
     ### Save to csv for visualization
     df_temp = pd.read_csv('local/visualize/dummy.csv')
@@ -115,14 +118,14 @@ def visualizeDir(model_path, output_path, direction):
     return
 
 if __name__ == "__main__":
+    # NOTE: camera points at [1,0,0] when unrotated
     model_path = r'local/models/version4_trial2.pth'
     output_path = r'local/visualize/visualize.csv'
-    visualize360(model_path,output_path)
-
-
-
-
-
+    
+    # visualize360(model_path,output_path)
+    position = array([0,0,0])
+    direction = array([1,0,0])
+    visualizeDir(model_path, output_path, position, direction)
 
 
 # def getUnitVectorfromImage(direction, focal_length, height = 1, width = 1, width_resolution = 1000, height_resolution = 1000):
