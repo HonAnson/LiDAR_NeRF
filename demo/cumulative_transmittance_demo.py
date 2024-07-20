@@ -3,11 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-
-
-""" Demonstrate how a neural network fits a sigmoid function"""
-
-
+from einops import rearrange
+""" Demonstrate prediction of model optimizing from predicting transmittance"""
 # Define the neural network model
 class SigmoidFittingModel(nn.Module):
     def __init__(self):
@@ -18,8 +15,7 @@ class SigmoidFittingModel(nn.Module):
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
-        # x = self.sigmoid(self.fc2(x))
-        x = self.fc2(x)
+        x = self.sigmoid(self.fc2(x))
         return x
 
 # Generate synthetic data
@@ -35,27 +31,8 @@ y_train = torch.tensor(y_data, dtype=torch.float32).view(-1, 1)
 
 # Initialize the model, loss function, and optimizer
 model = SigmoidFittingModel()
+criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.01)
-
-
-def render_ray(outputs):
-    t = torch.tensor(np.linspace(-10, 10, 100))
-    delta = torch.cat((t[1:] - t[:-1], torch.tensor([1e10])), -1)
-    mid = (t[:-1] + t[1:]) / 2.
-    sigma = outputs * (1 - outputs)
-    alpha = 1 - torch.exp(-sigma * delta)  # [nb_bins]
-    breakpoint()
-    accumulated_transmittance = torch.cumprod(alpha, 1)
-    # weights = compute_accumulated_transmittance(1 - alpha)
-
-
-
-
-
-    rendered_value = 0
-    return rendered_value
-
-
 
 # Training loop
 num_epochs = 5000
@@ -63,14 +40,8 @@ for epoch in range(num_epochs):
     model.train()
     
     # Forward pass
-    sigmoid_ = nn.Sigmoid()
-    outputs = sigmoid_(model(x_train))
-    # use output to conduct reconstruction
-    rendered_value = render_ray(y_train)
-
-
-
-    loss = (outputs, y_train)
+    outputs = model(x_train)
+    loss = criterion(outputs, y_train)
     
     # Backward pass and optimization
     optimizer.zero_grad()
@@ -82,18 +53,27 @@ for epoch in range(num_epochs):
 
 # Plotting the results
 model.eval()
-predicted_tensor = sigmoid_(model(x_train))
-predicted_np = predicted_tensor.detach().numpy()
-
-# try to also plot the gradient 
-occupancy = predicted_tensor* (1 -predicted_tensor)
-occupancy_np = occupancy.detach().numpy()
-
-
-
+output = model(x_train)
+predicted = output.detach().numpy()
 
 plt.figure(figsize=(10, 6))
-plt.plot(x_data, occupancy_np, 'ro', label='Original data')
-plt.plot(x_data, predicted_np, 'b-', label='Fitted line')
+plt.plot(x_data, y_data, 'ro', label='Original data')
+plt.plot(x_data, predicted, 'b-', label='Fitted line')
 plt.legend()
 plt.show()
+
+
+
+
+
+def render_ray(outputs):
+    t = torch.tensor(np.linspace(-10, 10, 100))
+    delta = torch.cat((t[1:] - t[:-1], torch.tensor([100])), -1)
+    mid = (t[:-1] + t[1:]) / 2.
+    h = outputs * (1 - outputs)     # h is the termination probability
+    h = rearrange(h, 'b 1 -> b')
+    rendered_value = torch.sum(h*delta*t)
+    return rendered_value
+
+temp = render_ray(output)
+print(temp)
