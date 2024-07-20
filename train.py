@@ -242,8 +242,9 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             actual_value_sigmoided = (getTargetValues(pos, gt_dist, org)).to(dtype = torch.float32)
             # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
 
-            loss_bce = nn.BCELoss()
-            loss = loss_bce(rendered_value_sigmoid, actual_value_sigmoided)         # + lossEikonal
+            # loss_bce = nn.BCELoss()
+            loss_MSE = nn.MSELoss()
+            loss = loss_MSE(rendered_value_sigmoid, actual_value_sigmoided)         # + lossEikonal
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -268,7 +269,7 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using {device} device")
 
-    data_path = r'datasets/training/round_plant2.npy'
+    data_path = r'datasets/training/building.npy'
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     print("Loaded data")
@@ -280,7 +281,8 @@ if __name__ == "__main__":
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
     losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
     losses_np = np.array(losses)
-    print("\nTraining completed.")
+    np.save('v4trial3_losses', losses_np)
+    print("\nTraining completed")
 
     ### Save the model
-    torch.save(model.state_dict(), 'local/models/version4_trial2.pth')
+    torch.save(model.state_dict(), 'local/models/version4_trial3.pth')
