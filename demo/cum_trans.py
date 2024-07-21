@@ -31,7 +31,7 @@ y_train = torch.tensor(y_data, dtype=torch.float32).view(-1, 1)
 
 # Initialize the model, loss function, and optimizer
 model = SigmoidFittingModel()
-criterion = nn.MSELoss()
+MSE_loss = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 # Training loop
@@ -41,15 +41,25 @@ for epoch in range(num_epochs):
     
     # Forward pass
     outputs = model(x_train)
-    loss = criterion(outputs, y_train)
-    
+    loss_cumtran = MSE_loss(outputs, y_train)      # MSE loss between predicted sigmoid vs actual sigmoid
+
+    t = torch.linspace(-10, 10, 100) # t is 
+    h = outputs * (1 - outputs)     # h is termination distribution, 
+    E_depth = (h*t).sum()
+    actual_depth = torch.tensor(0, dtype = torch.float32)
+    loss_edepth = MSE_loss(E_depth, actual_depth)
+
+    loss_together = loss_edepth + loss_cumtran
+    # loss_together = loss_edepth
+
+
     # Backward pass and optimization
     optimizer.zero_grad()
-    loss.backward()
+    loss_together.backward()
     optimizer.step()
     
     if (epoch + 1) % 500 == 0:
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss_together.item():.4f}')
 
 # Plotting the results
 model.eval()
