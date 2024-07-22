@@ -73,6 +73,7 @@ def visualize360(model_path, output_path):
 
 def visualizeDir(model_path, output_path, position, direction):
     """ Visualize reconstruction from model and position"""
+    # TODO: update function so that I can use quaterion as direction
     #### Load the model and try to "visualize" the model's datapoints
     model_evel = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15, device = 'cpu')
     model_evel.load_state_dict(torch.load(model_path))
@@ -86,10 +87,9 @@ def visualizeDir(model_path, output_path, position, direction):
 
     ### Render some structured pointcloud for evaluation
     with torch.no_grad():
-        dist = 0.05 # initial distanc for visualization
         pos = torch.tensor(position_tiled, dtype = torch.float32)
-        ele = torch.linspace(-0.1, 0.1, 100)
-        pan = torch.linspace(-0.2, 0.2, 1000)
+        ele = torch.linspace(-0.2, 0.2, 100)
+        pan = torch.linspace(-0.4, 0.4, 1000)
 
         ele_tiled = repeat(ele, 'n -> (r n) 1', r = 1000)
         pan_tiled = repeat(pan, 'n -> (n r) 1', r = 100)
@@ -98,34 +98,32 @@ def visualizeDir(model_path, output_path, position, direction):
         # direction for each "point" from camera centre
         directions = torch.tensor(sph2cart(array(ang)))
 
-        iterations = 1000
-        for i in range(iterations):
-            output2 = model_evel(pos, ang)
-            temp = torch.sign(output2)
-            pos += directions * dist * temp
-            printProgress(f'Visualizing... ({i}/{iterations})')
+        xyz_evel = model_evel(pos, ang)
+        depth_evel = torch.sqrt((xyz_evel**2).sum(1))
+        depth_evel = rearrange(depth_evel, 'a -> a 1')
+        pos += directions * depth_evel
 
     ### Save to csv for visualization
     df_temp = pd.read_csv('local/visualize/dummy.csv')
     df_temp = df_temp.head(100000)
     pos_np = pos.numpy()
     df_temp['X'] = pos_np[:,0]
-    df_temp['Y'] = pos_np[:,1]
+    df_temp['Y'] = pos_np[:,1
     df_temp['Z'] = pos_np[:,2]
     df_temp.to_csv(output_path, index=False)
     print(f'\nVisualizing output saved to {output_path}')
 
-    return
+    return pos_np
 
 if __name__ == "__main__":
     # NOTE: camera points at [1,0,0] when unrotated
-    model_path = r'local/models/version4_trial3.pth'
-    output_path = r'local/visualize/visualize.csv'
+    model_path = r'local/models/version5_trial0.pth'
+    output_path = r'local/visualize/v5t0.csv'
     
-    visualize360(model_path,output_path)
-    # position = array([0,0,0])
-    # direction = array([1,0,0])
-    # visualizeDir(model_path, output_path, position, direction)
+    position = array([0,0,0])
+    direction = array([1,0,0])
+    pcd = visualizeDir(model_path, output_path, position, direction)
+
 
 
 # def getUnitVectorfromImage(direction, focal_length, height = 1, width = 1, width_resolution = 1000, height_resolution = 1000):

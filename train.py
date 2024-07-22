@@ -22,10 +22,6 @@ def getDirections(angles):
     unit_vectors = torch.vstack([x_tilde, y_tilde, z_tilde])
     return unit_vectors
 
-
-
-
-
 def getSpacing(num_points, num_bins):
     """return a [num_points*num_bins, 1] pytorch tensor
     
@@ -42,10 +38,10 @@ def getSpacing(num_points, num_bins):
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
     # hard code start and end value of spacing to avoid infinity
     t[:,0] = 1e-4
-    t[:,-1] = 0.995
+    t[:,-1] = 0.999
     # apply inverse sigmoid function to even spacing
     t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
-    t = torch.log(t / ((1 - t) + 1e-8))  
+    # t = torch.log(t / ((1 - t) + 1e-8))
     return t  
 
 def getSamples(centres, angles, r, num_bins = 100):
@@ -59,9 +55,10 @@ def getSamples(centres, angles, r, num_bins = 100):
     unit_vectors_repeated = repeat(unit_vectors, 'c n -> (n b) c', b = num_bins)
     r_repeated = repeat(r, 'n -> (n b) 1', b = num_bins)
     t = getSpacing(num_points, num_bins)
-    sample_magnitudes = t + r_repeated
+    sample_magnitudes = t*r_repeated
     pos = unit_vectors_repeated*sample_magnitudes      # [num_bins*num_points, 3]
-
+    target_depth = rearrange(r_repeated - sample_magnitudes, 'nb 1 -> nb')
+    
     # tile the origin values
     # complete getting sample position by adding camera centre position to sampled position
     centres_tiled = torch.tensor(repeat(centres, 'n c -> (n b) c', b = num_bins)) # [num_bin*batch_size, 3]
@@ -69,7 +66,7 @@ def getSamples(centres, angles, r, num_bins = 100):
 
     # tile the angle too
     angles_tiled = torch.tensor(repeat(angles, 'n c -> (n b) c', b = num_bins))
-    return pos, angles_tiled, centres_tiled
+    return pos, angles_tiled, centres_tiled, target_depth
 
 
 
@@ -160,16 +157,17 @@ def getUpSamples(origins, angles, gt_distance, num_rolls = 1):
     return upsample_pos, upsample_ang, upsample_gt_dist
 
 
-# returns pytorch tensor of sigmoid of projected SDF
-def getTargetValues(sample_positions, gt_distance, origins, num_bins=100):
-    # calculate distance from sample_position
-    temp = torch.tensor((sample_positions - origins)**2)
-    pos_distance = torch.sqrt(torch.sum(temp, dim=1, keepdim=True))
-    
-    # find the "projected" value
+def warpu2d(u, focus = torch.tensor(1)):
+    """ Map value u between 0 to 1, to a depth between 0 to +inf"""
+    # TODO: deal with u being too close to 0 or too close to 1
+    # TODO: add "slope" for this function
+
     sigmoid = nn.Sigmoid()
-    values = sigmoid(-(pos_distance - gt_distance))
-    return values
+    offset = sigmoid(-focus)
+    d_netural = torch.logit(u*(1-offset) + offset)
+    return d_netural + focus
+
+
 
 
 class LiDAR_NeRF(nn.Module):
@@ -180,17 +178,17 @@ class LiDAR_NeRF(nn.Module):
         self.embedding_dim_pos = embedding_dim_pos
         self.block1 = nn.Sequential(
             nn.Linear(embedding_dim_pos * 6 + 3 + embedding_dim_dir * 4 + 2, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),               
-            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),               
-            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
         )
         
         self.block2 = nn.Sequential(
             nn.Linear(embedding_dim_pos * 6 + 3 + embedding_dim_dir * 4 + 2 + hidden_dim, hidden_dim), nn.ReLU(),               
-            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),               
-            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),               
-            nn.Linear(hidden_dim, hidden_dim), nn.Sigmoid(),
-            nn.Linear(hidden_dim,1)
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim,3), nn.ReLU()      # use relu here as we are predicting depth, which is always positive
         )
         
     @staticmethod
@@ -200,6 +198,7 @@ class LiDAR_NeRF(nn.Module):
             out.append(torch.sin(2 ** j * x))
             out.append(torch.cos(2 ** j * x))
         return torch.cat(out, dim=1)
+
 
     def forward(self, o, d):
         emb_x = self.positional_encoding(o, self.embedding_dim_pos)
@@ -223,28 +222,23 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             angles = batch[:,1:3]
             centers = batch[:,3:6]
 
-            sample_pos, sample_ang, sample_org = getSamples(centers, angles, gt_dist, num_bins=num_bins)
-            upsample_pos, upsample_ang, upsample_gt_dist = getUpSamples(centers, angles, gt_dist, num_rolls=0)
-
-            # tile distances
-            gt_dist_tiled = repeat(gt_dist, 'b -> (b n) 1', n=num_bins)
+            sample_pos, sample_ang, sample_org, depth_target = getSamples(centers, angles, gt_dist, num_bins=num_bins)
+            # upsample_pos, upsample_ang, upsample_gt_dist = getUpSamples(centers, angles, gt_dist, num_rolls=0)
 
             # stack the upsampled position to sampled positions
-            pos = (torch.vstack((sample_pos, upsample_pos))).to(device)
-            ang = (torch.vstack((sample_ang, upsample_ang))).to(device)
-            gt_dist = (torch.vstack((gt_dist_tiled,upsample_gt_dist))).to(device)
-            org = (torch.vstack((sample_org, upsample_pos))).to(device)
+            # pos = (torch.vstack((sample_pos, upsample_pos))).to(device)
+            # ang = (torch.vstack((sample_ang, upsample_ang))).to(device)
+            # gt_dist = (torch.vstack((gt_dist_tiled,upsample_gt_dist))).to(device)
+            # org = (torch.vstack((sample_org, upsample_pos))).to(device)
+            pos = sample_pos.to(device)
+            ang = sample_ang.to(device)
+            depth_target = (depth_target).to(device, dtype = torch.float32)
             
             # inference
-            rendered_value = model(pos, ang)
-            sigmoid = nn.Sigmoid()
-            rendered_value_sigmoid = sigmoid(rendered_value)
-            actual_value_sigmoided = (getTargetValues(pos, gt_dist, org)).to(dtype = torch.float32)
-            # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
-
-            # loss_bce = nn.BCELoss()
+            xyz_pred = model(pos, ang)
+            depth_pred = torch.sqrt((xyz_pred**2).sum(1))          # squared of predicted depth actually
             loss_MSE = nn.MSELoss()
-            loss = loss_MSE(rendered_value_sigmoid, actual_value_sigmoided)         # + lossEikonal
+            loss = loss_MSE(depth_pred,depth_target)         # + lossEikonal
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -260,9 +254,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
     return training_losses
 
 
-def runTrain():
-    pass
-    return
+
 
 
 if __name__ == "__main__":
@@ -279,10 +271,10 @@ if __name__ == "__main__":
     model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15).to(device)
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
-    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
+    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 8, device=device)
     losses_np = np.array(losses)
-    np.save('v4trial3_losses', losses_np)
+    np.save('v5trial0_losses', losses_np)
     print("\nTraining completed")
 
     ### Save the model
-    torch.save(model.state_dict(), 'local/models/version4_trial3.pth')
+    torch.save(model.state_dict(), 'local/models/version5_trial0.pth')

@@ -49,11 +49,11 @@ def preProcess(data):
     total_iter = len(keys)
     for key in keys:
         pcd_cart = np.array(data[key]['point_cloud'])
-        pose_position = np.array(data[key]['pose'])
-        pcd_sph = cart2sph(pcd_cart, pose_position)
+        pose_translation = np.array(data[key]['pose_translation'])
+        pcd_sph = cart2sph(pcd_cart, pose_translation)
 
         n = pcd_sph.shape[0]
-        pose_position_array = np.tile(pose_position, (n,1))
+        pose_position_array = np.tile(pose_translation, (n,1))
         pcd_with_pose_position = np.hstack((pcd_sph, pose_position_array))
         output = np.vstack((output, pcd_with_pose_position))
         if iter % 50 == 0:
@@ -65,7 +65,7 @@ def preProcess(data):
 
 
 if __name__ == "__main__":
-    name = r'round_plant2'
+    name = r'building_with_rotation'
     path = r'datasets/registered/' + name + r'.json'
     data = loadDataFromRegisteredSlam(path)
     training_data = preProcess(data)

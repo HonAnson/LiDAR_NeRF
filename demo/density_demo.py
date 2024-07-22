@@ -80,6 +80,7 @@ for epoch in range(num_epochs):
     loss_h = KL_loss(rendered_h, target_h)
     loss_cumtran = MSE_loss(rendered_cumtrans, target_cumtrans)
     # loss_togehter = loss_depth + loss_cumtran + loss_h
+    # loss_togehter = loss_depth
     # loss_togehter = loss_cumtran + loss_h
     loss_togehter = loss_h
 
@@ -103,12 +104,11 @@ predicted_cumtran_np = predicted_cumtran.detach().numpy()
 predicted_h_np = predicted_h.detach().numpy()
 target_h_np = target_h.detach().numpy()
 plt.figure(figsize=(10, 6))
-plt.plot(x_data, y_data,  label='Original data')
+plt.plot(x_data, y_data,  label='Targeted Cumulative Transmittance')
 plt.plot(x_data, output_np,  label='Predicted Density')
-
-plt.plot(x_data, target_h_np,  label='Target h')
-plt.plot(x_data, predicted_h_np,  label='Predicted h')
-plt.plot(x_data, predicted_cumtran_np,  label='Predicted Cum Tran line')
+plt.plot(x_data, target_h_np,  label='Target Termination Distribution')
+plt.plot(x_data, predicted_h_np,  label='Predicted Termination Distribution')
+plt.plot(x_data, predicted_cumtran_np,  label='Predicted Cumulative Transmittance')
 plt.legend()
 plt.show()
 

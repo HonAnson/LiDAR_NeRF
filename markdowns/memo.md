@@ -115,7 +115,19 @@
 
 ### Trial 3
 - Same setting as previou, using building data
-this time using MSE loss
+this time using MSE loss between GT cumulative transmittance and predicted cumulative transmittance
+
+
+
+## Version 5
+- Using a different approach, where model predict 3 variables, x_hat, y_hat, z_hat
+- Using these values, predicted_depth = (x_hat^2 + y_hat^2 + z_hat^2)^0.5
+- Then MSE with actual depth
+- With perturbated even sampling along each rays
+### Trail 0
+- Training with 8 ephoch, 1024 batch size, 100bin sampling density
+
+
 
 ### TODO
 * check whether upSampling() is working properly, where we are always using the smaller angle

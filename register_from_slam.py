@@ -118,7 +118,7 @@ def quickVizReg(source, target):
 
 
 if __name__ == "__main__":
-    name = r'round_plant2'
+    name = r'building'
     directory_pdc = r'datasets/json/' + name + r'/'
     files_pcd = listFiles(directory_pdc)
     files_pcd.sort()
