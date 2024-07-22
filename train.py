@@ -45,7 +45,7 @@ def getSpacing(num_points, num_bins):
     t[:,-1] = 0.995
     # apply inverse sigmoid function to even spacing
     t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
-    t = torch.log(t / ((1 - t) + 1e-8))  
+    t = torch.log(t / ((1 - t) + 1e-8)) 
     return t  
 
 def getSamples(centres, angles, r, num_bins = 100):
@@ -93,18 +93,18 @@ class LiDAR_NeRF(nn.Module):
         self.embedding_dim_dir = embedding_dim_dir
         self.embedding_dim_pos = embedding_dim_pos
         self.block1 = nn.Sequential(
-            nn.Linear(embedding_dim_pos * 6 + 3 + embedding_dim_dir * 4 + 2, hidden_dim), nn.ReLU(),
+            nn.Linear(embedding_dim_pos * 6 + 3, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
         )
         
         self.block2 = nn.Sequential(
-            nn.Linear(embedding_dim_pos * 6 + 3 + embedding_dim_dir * 4 + 2 + hidden_dim, hidden_dim), nn.ReLU(),               
+            nn.Linear(embedding_dim_pos * 6 + 3 + hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim,1), nn.ReLU()
+            nn.Linear(hidden_dim,1), nn.ReLU()      # relu for last layer, as we are predicting density of at locations
         )
         
     @staticmethod
@@ -117,12 +117,11 @@ class LiDAR_NeRF(nn.Module):
 
     def forward(self, o, d):
         emb_x = self.positional_encoding(o, self.embedding_dim_pos)
-        emb_d = self.positional_encoding(d, self.embedding_dim_dir)
-        input = torch.hstack((emb_x,emb_d)).to(dtype=torch.float32)
-        temp = self.block1(input)
-        input2 = torch.hstack((temp, input)).to(dtype=torch.float32) # add skip input
-        output = self.block2(input2)
-        return output
+        temp = self.block1(emb_x)
+        # temp2 = torch.cat((temp, emb_x), dim=1).to(dtype=torch.float32) # add skip input
+        temp2 = torch.cat((temp, emb_x), dim=1) # add skip input
+        density = self.block2(temp2)
+        return density
 
 
 def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100):
