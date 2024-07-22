@@ -46,19 +46,18 @@ def getSpacing(num_points, num_bins):
     # apply inverse sigmoid function to even spacing
     t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
     t = torch.log(t / ((1 - t) + 1e-8)) 
-    return t  
+    # TODO: force range of t to be from 0 to 1
+    breakpoint()
+    return t , delta
 
-def getSamples(centres, angles, r, num_bins = 100):
-    num_points = r.shape[0]
-    elev = angles[:,0]
-    pan = angles[:,1]
-    x_tilde, y_tilde, z_tilde = cos(elev)*cos(pan), cos(elev)*sin(pan), sin(elev)      
-    unit_vectors = torch.vstack([x_tilde, y_tilde, z_tilde])
+def getSamplingPositions(centres, directions, distance, num_bins = 100):
+    num_points = distance.shape[0]
 
-    # process vectors: [3, num_points] -> [num_points*num_bins, 3]
-    unit_vectors_repeated = repeat(unit_vectors, 'c n -> (n b) c', b = num_bins)
-    r_repeated = repeat(r, 'n -> (n b) 1', b = num_bins)
-    t = getSpacing(num_points, num_bins)
+    # process directions: [num_points, 3] -> [num_points*num_bins, 3]
+    dir_tiled = repeat(directions, 'c n -> (n b) c', b = num_bins)
+    dist_tiled = repeat(distance, 'n -> (n b) 1', b = num_bins)
+
+    t, delta = getSpacing(num_points, num_bins)
     sample_magnitudes = t + r_repeated
     pos = unit_vectors_repeated*sample_magnitudes      # [num_bins*num_points, 3]
 
@@ -67,15 +66,16 @@ def getSamples(centres, angles, r, num_bins = 100):
     centres_tiled = torch.tensor(repeat(centres, 'n c -> (n b) c', b = num_bins)) # [num_bin*batch_size, 3]
     pos = centres_tiled + pos
 
-    # tile the angle too
-    angles_tiled = torch.tensor(repeat(angles, 'n c -> (n b) c', b = num_bins))  # [num_bin*batch_size, 2]
-    return pos, angles_tiled, centres_tiled
+    return pos
 
 
+
+def computePredictedCumulativeTransmittance():
+    pass
 
 
 # returns pytorch tensor of sigmoid of projected SDF
-def getTargetValues(sample_positions, gt_distance, origins, num_bins=100):
+def getTargetCumulativeTransmittance(sample_positions, gt_distance, origins, num_bins=100):
     # calculate distance from sample_position
     temp = torch.tensor((sample_positions - origins)**2)
     pos_distance = torch.sqrt(torch.sum(temp, dim=1, keepdim=True))
@@ -84,6 +84,10 @@ def getTargetValues(sample_positions, gt_distance, origins, num_bins=100):
     sigmoid = nn.Sigmoid()
     values = sigmoid(-(pos_distance - gt_distance))
     return values
+
+def getTargetTerminationDistribution(target_cumul_trans):
+    pass
+    return
 
 
 class LiDAR_NeRF(nn.Module):
@@ -132,11 +136,12 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
         for iter, batch in enumerate(dataloader):
 
             # parse the batch
-            gt_dist = batch[:,0]
-            angles = batch[:,1:3]
-            centers = batch[:,3:6]
+            centres = batch[:,0:3]
+            directions = batch[:,3:6]
+            gt_dist = batch[:,6]
 
-            sample_pos, sample_ang, sample_org = getSamples(centers, angles, gt_dist, num_bins=num_bins)
+            sample_pos, sample_dir, sample_cen = getSamplingPositions(centres, directions, gt_dist, num_bins=num_bins)
+
 
             # tile distances
             gt_dist_tiled = repeat(gt_dist, 'b -> (b n) 1', n=num_bins)
@@ -146,7 +151,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             ang = sample_ang.to(device)
 
             gt_dist = (torch.vstack((gt_dist_tiled,upsample_gt_dist))).to(device)
-            org = (torch.vstack((sample_org, upsample_pos))).to(device)
+            org = (torch.vstack((sample_cen, upsample_pos))).to(device)
             
             # inference
             rendered_value = model(pos, ang)
@@ -177,8 +182,10 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using {device} device")
-
-    data_path = r'datasets/training/building.npy'
+    ####
+    # Choose data here
+    data_path = r'datasets/training_cumulative/building.npy'
+    ####
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     print("Loaded data")

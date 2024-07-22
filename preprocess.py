@@ -38,6 +38,15 @@ def cart2sph(pcd_array, pose_position):
     output = array([r, elev, pan])
     return rearrange(output, 'a b -> b a') #take transpose
 
+def getDistanceAndDirection(pcd_array, pose_position):
+    pcd_local_aligned = pcd_array - pose_position
+    x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
+    distance = sqrt(x**2 + y**2 + z**2)
+    distance =  rearrange(distance, 'n -> n 1')
+    ray_direction = pcd_local_aligned / distance
+
+    return distance, ray_direction
+
 
 def prepareTrainingData(data):
     """Transform registered point clouds into giant array for model training
@@ -45,20 +54,21 @@ def prepareTrainingData(data):
     output: n*6 numpy array
     """
     keys = list(data.keys())
-    output = np.zeros((1,6))
-    scene_points = np.zeros((1,3))
+    output = np.zeros((1,7))
+    scene_points = np.zeros((1,3)) # for scaling point cloud
     iter = 0
     total_iter = len(keys)
     for key in keys:
         pcd_cart = np.array(data[key]['point_cloud'])
-        pose_position = np.array(data[key]['pose'])
-        pcd_sph = cart2sph(pcd_cart, pose_position)
+        ray_origin = np.array(data[key]['pose'])
         scene_points = np.vstack((scene_points, pcd_cart))
-        scene_points = np.vstack((scene_points,pose_position))
-        n = pcd_sph.shape[0]
-        pose_position_array = np.tile(pose_position, (n,1))
-        pcd_with_pose_position = np.hstack((pcd_sph, pose_position_array))
-        output = np.vstack((output, pcd_with_pose_position))
+        scene_points = np.vstack((scene_points,ray_origin))
+        distance, ray_direction = getDistanceAndDirection(pcd_cart, ray_origin)
+
+        n = distance.shape[0]
+        ray_origin_tiled = np.tile(ray_origin, (n,1))
+        training_data = np.hstack((ray_origin_tiled,ray_direction, distance))
+        output = np.vstack((output, training_data))
         if iter % 50 == 0:
             message = f"Preparing data ... ({iter}/{total_iter})"
             printProgress(message)
@@ -69,8 +79,8 @@ def prepareTrainingData(data):
     max_xyz = np.max(scene_points, axis=0)
     min_xyz = np.min(scene_points, axis=0)
     max_distance = np.max(max_xyz - min_xyz)
-    output[:,0] /= max_distance
-    output[:,3:6] /= max_distance
+    output[:,0:3] /= max_distance
+    output[:,-1] /= max_distance
     print(f"\nScaling factor is: {1 / max_distance}")
 
     return output[1:,:]
@@ -78,7 +88,7 @@ def prepareTrainingData(data):
 
 
 if __name__ == "__main__":
-    name = r'box_plant2'
+    name = r'building'
     input_path = r'datasets/registered/' + name + r'.json'
     data = loadDataFromRegisteredSlam(input_path)
     training_data = prepareTrainingData(data)
