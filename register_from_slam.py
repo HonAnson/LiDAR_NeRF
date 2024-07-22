@@ -94,7 +94,6 @@ def registerFromSlam(paths_pcd, path_pose):
                 pose_key = pose_keys[frame_idx - 5]
                 translation = np.array(poses[pose_key]['translation'])
                 rotation = np.array(poses[pose_key]['rotation'])
-
                 pcd = shortPassFilter(pcd, 20)
                 pcd = longtPassFilter(pcd)
                 pcd = transformPointCloud(pcd, translation, rotation)

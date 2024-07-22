@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 # Import the cart2sph function
-from pretrain import cart2sph
+from preprocess import cart2sph
 
 class TestCart2Sph(unittest.TestCase):
     def setUp(self):

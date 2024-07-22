@@ -1,11 +1,12 @@
 ### Livox Data CSV
-
 - X, Y, Z, are location of the point, with respect to the camera centre
 - No time information provided
-- No
 
 
 
+## Version 1
+- Using angle and position as input, and train model to predict projected cumulative transmittance
+- 
 ### Trial 0
 - Used spherical harmonics as encoder for view direction
 - Combined measurement from 5 frames into 1 set, assuming linear translation between frames only
@@ -79,7 +80,7 @@
 - Used MSE loss instead of sigmoid and BCE loss
 - Achieved similar result with sigmoid and BCE loss
 
-## Version 
+## Version 3
 - Trying to use space wrapping 
 - In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
 - 
@@ -118,14 +119,13 @@
 this time using MSE loss
 
 ### TODO
-* check whether upSampling() is working properly, where we are always using the smaller angle
 * Work on visualization
 * Figure out how to use HPC in campus
 * Work on adding wrapping to the model
 * Try to skew the sampling
-* Scale all scenes such that they are within certian range (maybe -10 to 10)
-* 
-
+* Scale all scenes (including camera poses)such that they are within certian range (maybe 0 to 1)
+* Update `getSpacing` method so that number of samples are porpotional to "length" of the ray
+* Create a function for getting "Mask" from pose
 
 ### Note to self:
 1. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
