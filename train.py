@@ -41,13 +41,13 @@ def getSpacing(num_points, num_bins):
     u = torch.rand(t.shape)
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
     # hard code start and end value of spacing to avoid infinity
-    t[:,0] = 1e-4
-    t[:,-1] = 0.995
+    t[:,0] = 1e-3
+    t[:,-1] = 0.999
     # apply inverse sigmoid function to even spacing
-    t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
-    t = torch.log(t / ((1 - t) + 1e-8)) 
-    # TODO: force range of t to be from 0 to 1
-    breakpoint()
+    t = torch.log(t / ((1 - t) + 1e-8))
+    t /= 13.8136 # obtained by inv_sigmoid(0.999)*2, which normalize t to between -0.5 to 0.5
+    delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([1e10]).expand(num_points, 1)), -1)
+    # t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
     return t , delta
 
 def getSamplingPositions(centres, directions, distance, num_bins = 100):
@@ -57,7 +57,10 @@ def getSamplingPositions(centres, directions, distance, num_bins = 100):
     dir_tiled = repeat(directions, 'c n -> (n b) c', b = num_bins)
     dist_tiled = repeat(distance, 'n -> (n b) 1', b = num_bins)
 
-    t, delta = getSpacing(num_points, num_bins)
+    t, delta = getSpacing(num_points, num_bins)     # [num_points, num_bin]
+
+
+    # TODO: fix here
     sample_magnitudes = t + r_repeated
     pos = unit_vectors_repeated*sample_magnitudes      # [num_bins*num_points, 3]
 
@@ -67,8 +70,6 @@ def getSamplingPositions(centres, directions, distance, num_bins = 100):
     pos = centres_tiled + pos
 
     return pos
-
-
 
 def computePredictedCumulativeTransmittance():
     pass
@@ -139,7 +140,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             centres = batch[:,0:3]
             directions = batch[:,3:6]
             gt_dist = batch[:,6]
-
+            breakpoint()
             sample_pos, sample_dir, sample_cen = getSamplingPositions(centres, directions, gt_dist, num_bins=num_bins)
 
 
@@ -197,8 +198,9 @@ if __name__ == "__main__":
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
     losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
     losses_np = np.array(losses)
-    np.save('v4trial3_losses', losses_np)
-    print("\nTraining completed")
 
-    ### Save the model
-    torch.save(model.state_dict(), 'local/models/version4_trial3.pth')
+    # np.save('ver_cumulative_trial0_losses', losses_np)
+    # print("\nTraining completed")
+
+    # ### Save the model
+    # torch.save(model.state_dict(), 'local/models/ver_cumulative_trial0.pth')

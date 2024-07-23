@@ -23,6 +23,7 @@ def printProgress(message):
 
 
 def quickVizNumpy(points):
+    """ Visualize point cloud in format n*3 numpy array"""
     # Convert the numpy array to an Open3D PointCloud object
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
