@@ -56,27 +56,28 @@ def getSamplingPositions(centres, directions, distance, t, num_bins = 100):
     return pos
 
 
-def computeCumulativeTransmittance(density, delta):
+def computeCumulativeTransmittance(alpha):
     # density have shape [num_points, num_bin]
-    alpha = 1 - torch.exp()
+    T = torch.cumprod((1 - alpha), 1)
+    return T
 
+def computeTerminationDistribution(T, alpha):
+    h = T * alpha
+    return h
 
-
-
-
-    return
-
-
+def computeExpectedDepth(h, sample_pos):
+    d_hat = torch.sum(h * sample_pos, axis = 1)
+    return d_hat
 
 # returns pytorch tensor of sigmoid of projected SDF
 def getTargetCumulativeTransmittance(t, variance = 1):
     sigmoid = nn.Sigmoid()
-    values = sigmoid(-t)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
-    return values
+    target_T = sigmoid(-t)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
+    return target_T
 
-def getTargetTerminationDistribution(target_cumul_trans):
-    pass
-    return
+def getTargetTerminationDistribution(target_cumul_trans, delta):
+    target_h = (target_cumul_trans * (1 - target_cumul_trans)) * delta
+    return target_h
 
 
 
@@ -122,6 +123,9 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
+    KL_loss = nn.KLDivLoss()
+    MSE_loss = nn.MSELoss()
+    #loss_bce = nn.BCELoss()
     for epoch in range(num_epoch):
         for iter, batch in enumerate(dataloader):
 
@@ -134,35 +138,33 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             # prepare sampling positions
             t, delta = getSpacing(num_points, num_bins)
             sample_pos = getSamplingPositions(centres, directions, distance, t, num_bins=num_bins)
+            t = t.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
+            delta = delta.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
             sample_pos = sample_pos.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
 
             # inference
             input_pos = rearrange(sample_pos, 'n b c -> (n b) c')
             density_pred = model(input_pos)
             density_pred = rearrange(density_pred, '(n b) 1 -> n b', n = num_points, b = num_bins)
-            breakpoint()
+
             # compute cumulative transmittance from density prediction
-            T_pred = computeCumulativeTransmittance(density_pred)
+            alpha = 1 - torch.exp(-density_pred * delta)
+            T_pred = computeCumulativeTransmittance(alpha)
             h_pred = computeTerminationDistribution(T_pred, delta)
             d_pred = computeExpectedDepth(h_pred, delta)
 
+            T_target = getTargetCumulativeTransmittance(t)
+            h_target = getTargetTerminationDistribution(t, delta)
+            d_target = distance.to(device)
+            breakpoint()
+            loss_T = MSE_loss(T_pred,T_target)
+            loss_h = KL_loss(h_pred, h_target)
+            loss_d = MSE_loss(d_pred, d_target)
 
+            loss_together = loss_T + loss_h + loss_d
 
-
-
-
-
-
-
-
-
-            # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
-
-            # loss_bce = nn.BCELoss()
-            loss_MSE = nn.MSELoss()
-            loss = loss_MSE(rendered_value_sigmoid, actual_value_sigmoided)         # + lossEikonal
             optimizer.zero_grad()
-            loss.backward()
+            loss_together.backward()
             optimizer.step()
 
             ### Prin loss messages
