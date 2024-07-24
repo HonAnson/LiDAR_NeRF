@@ -23,22 +23,31 @@ def loadDataFromRegisteredSlam(path):
     return data
 
 
-def cart2sph(pcd_array, pose_position):
-    """ Convert a n*3 point cloud, 
-    with camera centre at pose_position from cartesian coordinate in global frame
-    to global algined spherical coordinate at camera frame
+# def cart2sph(pcd_array, pose_position):
+#     """ Convert a n*3 point cloud, 
+#     with camera centre at pose_position from cartesian coordinate in global frame
+#     to global algined spherical coordinate at camera frame
     
-    """
-    pcd_local_aligned = pcd_array - pose_position
-    x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
-    XsqPlusYsq = x**2 + y**2
-    r = sqrt(XsqPlusYsq + z**2)
-    elev = arctan2(z, sqrt(XsqPlusYsq))
-    pan = arctan2(y, x)
-    output = array([r, elev, pan])
-    return rearrange(output, 'a b -> b a') #take transpose
+#     """
+#     pcd_local_aligned = pcd_array - pose_position
+#     x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
+#     XsqPlusYsq = x**2 + y**2
+#     r = sqrt(XsqPlusYsq + z**2)
+#     elev = arctan2(z, sqrt(XsqPlusYsq))
+#     pan = arctan2(y, x)
+#     output = array([r, elev, pan])
+#     return rearrange(output, 'a b -> b a') #take transpose
 
 def getDistanceAndDirection(pcd_array, pose_position):
+    """ Convert point cloud and camera position to training data 
+    Input: 
+    pcd_array: n*3 numpy array
+    pose_position: 1*3 numpy array
+
+    Output:
+    distance: n numpy array
+    ray_direction n*3 numpy array, where each row represent a unit vector
+    """
     pcd_local_aligned = pcd_array - pose_position
     x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
     distance = sqrt(x**2 + y**2 + z**2)
@@ -79,8 +88,8 @@ def prepareTrainingData(data):
     max_xyz = np.max(scene_points, axis=0)
     min_xyz = np.min(scene_points, axis=0)
     max_distance = np.max(max_xyz - min_xyz)
-    output[:,0:3] /= max_distance
-    output[:,-1] /= max_distance
+    output[:,0:3] /= max_distance       # normalize camera position
+    output[:,-1] /= max_distance        # normalize depth
     print(f"\nScaling factor is: {1 / max_distance}")
 
     return output[1:,:]
@@ -88,7 +97,7 @@ def prepareTrainingData(data):
 
 
 if __name__ == "__main__":
-    name = r'building'
+    name = r'round_plant2'
     input_path = r'datasets/registered/' + name + r'.json'
     data = loadDataFromRegisteredSlam(input_path)
     training_data = prepareTrainingData(data)

@@ -24,11 +24,8 @@ def getDirections(angles):
 
 
 
-
-
 def getSpacing(num_points, num_bins):
     """return a [num_points*num_bins, 1] pytorch tensor
-    
     """
     # TODO: add hyperparameter for tuning "slope" of inverse sigmoid function
     # create a list of magnitudes with even spacing from 0 to 1
@@ -41,54 +38,47 @@ def getSpacing(num_points, num_bins):
     u = torch.rand(t.shape)
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
     # hard code start and end value of spacing to avoid infinity
-    t[:,0] = 1e-3
-    t[:,-1] = 0.999
+    t[:,0], t[:,-1] = 1e-3, 0.999
     # apply inverse sigmoid function to even spacing
     t = torch.log(t / ((1 - t) + 1e-8))
-    t /= 13.8136 # obtained by inv_sigmoid(0.999)*2, which normalize t to between -0.5 to 0.5
+    t /= 13.8136 # constant obtained by invsigmoid(0.999)*2, which normalize t to between -0.5 to 0.5
     delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([1e10]).expand(num_points, 1)), -1)
-    # t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
+    # t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1]
+    # delta = rearrange(delta, 'a b -> (a b) 1')  # [num_bins*batch_size, 1]
     return t , delta
 
-def getSamplingPositions(centres, directions, distance, num_bins = 100):
-    num_points = distance.shape[0]
-
-    # process directions: [num_points, 3] -> [num_points*num_bins, 3]
-    dir_tiled = repeat(directions, 'c n -> (n b) c', b = num_bins)
-    dist_tiled = repeat(distance, 'n -> (n b) 1', b = num_bins)
-
-    t, delta = getSpacing(num_points, num_bins)     # [num_points, num_bin]
-
-
-    # TODO: fix here
-    sample_magnitudes = t + r_repeated
-    pos = unit_vectors_repeated*sample_magnitudes      # [num_bins*num_points, 3]
-
-    # tile the origin values
-    # complete getting sample position by adding camera centre position to sampled position
-    centres_tiled = torch.tensor(repeat(centres, 'n c -> (n b) c', b = num_bins)) # [num_bin*batch_size, 3]
-    pos = centres_tiled + pos
-
+def getSamplingPositions(centres, directions, distance, t, num_bins = 100):
+    dist_tiled = repeat(distance, 'n -> n b', b = num_bins)
+    magnitudes = repeat(t + dist_tiled, 'n b -> n b c', c = 3)   # [num_points, num_bin, 3]
+    dir_tiled = repeat(directions, 'n c -> n b c', b = num_bins)
+    centres_tiled = repeat(centres, 'n c -> n b c', b = num_bins) # [num_points, num_bin, 3]
+    pos = magnitudes*dir_tiled + centres_tiled
     return pos
 
-def computePredictedCumulativeTransmittance():
-    pass
+
+def computeCumulativeTransmittance(density, delta):
+    # density have shape [num_points, num_bin]
+    alpha = 1 - torch.exp()
+
+
+
+
+
+    return
+
 
 
 # returns pytorch tensor of sigmoid of projected SDF
-def getTargetCumulativeTransmittance(sample_positions, gt_distance, origins, num_bins=100):
-    # calculate distance from sample_position
-    temp = torch.tensor((sample_positions - origins)**2)
-    pos_distance = torch.sqrt(torch.sum(temp, dim=1, keepdim=True))
-    
-    # find the "projected" value
+def getTargetCumulativeTransmittance(t, variance = 1):
     sigmoid = nn.Sigmoid()
-    values = sigmoid(-(pos_distance - gt_distance))
+    values = sigmoid(-t)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
     return values
 
 def getTargetTerminationDistribution(target_cumul_trans):
     pass
     return
+
+
 
 
 class LiDAR_NeRF(nn.Module):
@@ -108,8 +98,8 @@ class LiDAR_NeRF(nn.Module):
             nn.Linear(embedding_dim_pos * 6 + 3 + hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim,1), nn.ReLU()      # relu for last layer, as we are predicting density of at locations
+            nn.Linear(hidden_dim, hidden_dim//2), nn.ReLU(),
+            nn.Linear(hidden_dim//2,1), nn.ReLU()      # relu for last layer, as we are predicting density of at locations
         )
         
     @staticmethod
@@ -120,10 +110,9 @@ class LiDAR_NeRF(nn.Module):
             out.append(torch.cos(2 ** j * x))
         return torch.cat(out, dim=1)
 
-    def forward(self, o, d):
-        emb_x = self.positional_encoding(o, self.embedding_dim_pos)
+    def forward(self, pos):
+        emb_x = self.positional_encoding(pos, self.embedding_dim_pos)
         temp = self.block1(emb_x)
-        # temp2 = torch.cat((temp, emb_x), dim=1).to(dtype=torch.float32) # add skip input
         temp2 = torch.cat((temp, emb_x), dim=1) # add skip input
         density = self.block2(temp2)
         return density
@@ -137,28 +126,36 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
         for iter, batch in enumerate(dataloader):
 
             # parse the batch
+            num_points = batch.shape[0]
             centres = batch[:,0:3]
             directions = batch[:,3:6]
-            gt_dist = batch[:,6]
-            breakpoint()
-            sample_pos, sample_dir, sample_cen = getSamplingPositions(centres, directions, gt_dist, num_bins=num_bins)
+            distance = batch[:,6]
 
+            # prepare sampling positions
+            t, delta = getSpacing(num_points, num_bins)
+            sample_pos = getSamplingPositions(centres, directions, distance, t, num_bins=num_bins)
+            sample_pos = sample_pos.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
 
-            # tile distances
-            gt_dist_tiled = repeat(gt_dist, 'b -> (b n) 1', n=num_bins)
-
-            # stack the upsampled position to sampled positions
-            pos = sample_pos.to(device)
-            ang = sample_ang.to(device)
-
-            gt_dist = (torch.vstack((gt_dist_tiled,upsample_gt_dist))).to(device)
-            org = (torch.vstack((sample_cen, upsample_pos))).to(device)
-            
             # inference
-            rendered_value = model(pos, ang)
+            input_pos = rearrange(sample_pos, 'n b c -> (n b) c')
+            density_pred = model(input_pos)
+            density_pred = rearrange(density_pred, '(n b) 1 -> n b', n = num_points, b = num_bins)
+            breakpoint()
+            # compute cumulative transmittance from density prediction
+            T_pred = computeCumulativeTransmittance(density_pred)
+            h_pred = computeTerminationDistribution(T_pred, delta)
+            d_pred = computeExpectedDepth(h_pred, delta)
 
 
-            actual_value_sigmoided = (getTargetValues(pos, gt_dist, org)).to(dtype = torch.float32)
+
+
+
+
+
+
+
+
+
             # loss = lossBCE(rendered_value, actual_value_sigmoided)  # + lossEikonal(model)
 
             # loss_bce = nn.BCELoss()
