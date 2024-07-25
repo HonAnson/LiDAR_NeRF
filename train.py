@@ -24,7 +24,7 @@ def getDirections(angles):
 
 
 
-def getSpacing(num_points, num_bins):
+def getSpacing(num_points, num_bins, variance = 0.1):
     """return a [num_points*num_bins, 1] pytorch tensor
     """
     # TODO: add hyperparameter for tuning "slope" of inverse sigmoid function
@@ -41,8 +41,9 @@ def getSpacing(num_points, num_bins):
     t[:,0], t[:,-1] = 1e-3, 0.999
     # apply inverse sigmoid function to even spacing
     t = torch.log(t / ((1 - t) + 1e-8))
+
     t /= 13.8136 # constant obtained by invsigmoid(0.999)*2, which normalize t to between -0.5 to 0.5
-    delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([1e10]).expand(num_points, 1)), -1)
+    delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([10]).expand(num_points, 1)), -1)
     # t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1]
     # delta = rearrange(delta, 'a b -> (a b) 1')  # [num_bins*batch_size, 1]
     return t , delta
@@ -135,6 +136,8 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             # prepare sampling positions
             t, delta = getSpacing(num_points, num_bins)
             sample_pos = getSamplingPositions(centres, directions, distance, t, num_bins=num_bins)
+
+            # transfer tensors to device
             t = t.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
             delta = delta.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
             sample_pos = sample_pos.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
@@ -150,29 +153,31 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             h_pred = computeTerminationDistribution(T_pred, delta)
             d_pred = computeExpectedDepth(h_pred, delta)
 
-            T_target = getTargetCumulativeTransmittance(t)
-            h_target = getTargetTerminationDistribution(t, delta)
-            d_target = distance.to(device)
-            
+            # also get target values
+            T_target = getTargetCumulativeTransmittance(t, variance = 0.1)
+            h_target = getTargetTerminationDistribution(t, delta, variance=0.1)
+            d_target = distance.to(device, dtype = torch.float32)
+
+            # calculate losses 
             loss_T = MSE_loss(T_pred,T_target)
-            loss_h = KL_loss(h_pred, h_target)
-            loss_d = MSE_loss(d_pred, d_target)
-
-            loss_together = loss_T + loss_h + loss_d        # TODO: hyperparameter tunning
-
+            # loss_h = KL_loss(h_pred, h_target)    # TODO: bug here, returning NAN, check DS NeRF source code for more
+            loss_d = MSE_loss(d_pred, d_target)     # TODO: bug here too, model not converging
+            loss_together = 10*loss_T + loss_d        # TODO: hyperparameter tunning
             optimizer.zero_grad()
             loss_together.backward()
             optimizer.step()
-
             ### Prin loss messages and store losses
+            if count == 2:
+                breakpoint()
             if count % 500 == 0:
                 training_losses.append(loss_together.item())
             count += 1
-            message = f"Training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()}"
+            message = f"Training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss_together.item()}"
             printProgress(message)
 
         scheduler.step()
     return training_losses
+
 
 
 
