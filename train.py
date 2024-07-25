@@ -56,7 +56,6 @@ def getSamplingPositions(centres, directions, distance, t, num_bins = 100):
     return pos
 
 def computeCumulativeTransmittance(alpha):
-    # density have shape [num_points, num_bin]
     T = torch.cumprod((1 - alpha), 1)
     return T
 
@@ -76,6 +75,7 @@ def getTargetCumulativeTransmittance(t, variance = 1):
 
 def getTargetTerminationDistribution(target_T, delta, variance = 1):
     target_h = (target_T * (1 - target_T)) * (delta / variance)
+    target_h[:,-1] = 0
     return target_h
 
 
@@ -116,7 +116,7 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, variance = 1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
@@ -153,7 +153,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             T_target = getTargetCumulativeTransmittance(t)
             h_target = getTargetTerminationDistribution(t, delta)
             d_target = distance.to(device)
-            breakpoint()
+            
             loss_T = MSE_loss(T_pred,T_target)
             loss_h = KL_loss(h_pred, h_target)
             loss_d = MSE_loss(d_pred, d_target)
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15).to(device)
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
-    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
+    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device, variance = 1)
     losses_np = np.array(losses)
 
     # np.save('ver_cumulative_trial0_losses', losses_np)

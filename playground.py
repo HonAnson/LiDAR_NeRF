@@ -1,63 +1,34 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
+import json
+import open3d as o3d
+import pandas as pd
+import os
+import copy
+from utility import listFiles, quickVizNumpy
+from scipy.spatial.transform import Rotation as R
+from numpy import cos, sin, sqrt, arctan2, array
+import torch.nn as nn
+from einops import rearrange
+### fucking around
+from preprocess import loadDataFromRegisteredSlam
+from train import getSpacing, getTargetCumulativeTransmittance, getTargetTerminationDistribution
 
-# Define the neural network model
-class SigmoidFittingModel(nn.Module):
-    def __init__(self):
-        super(SigmoidFittingModel, self).__init__()
-        self.fc1 = nn.Linear(1, 10)  # Input layer to hidden layer
-        self.fc2 = nn.Linear(10, 1)  # Hidden layer to output layer
-        self.sigmoid = nn.Sigmoid()  # Sigmoid activation function
+variance = 0.1
+t, delta = getSpacing(2, 1000)
+T = getTargetCumulativeTransmittance(t, variance=variance)
+h = getTargetTerminationDistribution(T, delta, variance=variance)
 
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        # x = self.sigmoid(self.fc2(x))
-        x = self.fc2(x)
-        return x
+T[0,-1] = 0
+temp  = sum((T[0,:] * (1 - T[0,:]))*delta[0,:])
+breakpoint()
+x = np.array(t[0,:])
+y = np.array()
 
-# Generate synthetic data
-def generate_data(num_points=100):
-    x = np.linspace(-10, 10, num_points)
-    y = 1 / (1 + np.exp(-x))  # Sigmoid function
-    return x, y
-
-# Prepare data
-x_data, y_data = generate_data()
-x_train = torch.tensor(x_data, dtype=torch.float32).view(-1, 1)
-y_train = torch.tensor(y_data, dtype=torch.float32).view(-1, 1)
-
-# Initialize the model, loss function, and optimizer
-model = SigmoidFittingModel()
-criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.01)
-
-# Training loop
-num_epochs = 5000
-for epoch in range(num_epochs):
-    model.train()
-    
-    # Forward pass
-    sigmoid_ = nn.Sigmoid()
-    outputs = sigmoid_(model(x_train))
-    loss = criterion(outputs, y_train)
-    
-    # Backward pass and optimization
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    
-    if (epoch + 1) % 500 == 0:
-        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
-
-# Plotting the results
-model.eval()
-predicted = model(x_train).detach().numpy()
-
-plt.figure(figsize=(10, 6))
-plt.plot(x_data, y_data, 'ro', label='Original data')
-plt.plot(x_data, predicted, 'b-', label='Fitted line')
-plt.legend()
+plt.plot(x, k*(1-k))
+plt.title("Plot of NumPy Array")
+plt.xlabel("x-axis")
+plt.ylabel("y-axis")
 plt.show()
+
