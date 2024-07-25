@@ -1,6 +1,4 @@
 import numpy as np
-import pandas as pd
-import math as m
 import os
 import torch
 import torch.nn as nn
@@ -13,14 +11,14 @@ from einops import rearrange, repeat
 from numpy import sin, cos
 from utility import printProgress
 
-def getDirections(angles):
-    """ Convert torch tensor of angles to 
-    cartiseian coordinate unit vector pointing that direction
-    """
-    elev, pan = angles[:,0], angles[:,1]
-    x_tilde, y_tilde, z_tilde = cos(elev)*cos(pan), cos(elev)*sin(pan), sin(elev)      
-    unit_vectors = torch.vstack([x_tilde, y_tilde, z_tilde])
-    return unit_vectors
+# def getDirections(angles):
+#     """ Convert torch tensor of angles to 
+#     cartiseian coordinate unit vector pointing that direction
+#     """
+#     elev, pan = angles[:,0], angles[:,1]
+#     x_tilde, y_tilde, z_tilde = cos(elev)*cos(pan), cos(elev)*sin(pan), sin(elev)      
+#     unit_vectors = torch.vstack([x_tilde, y_tilde, z_tilde])
+#     return unit_vectors
 
 def getSpacing(num_points, num_bins):
     """return a [num_points*num_bins, 1] pytorch tensor
@@ -157,6 +155,7 @@ if __name__ == "__main__":
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     print("Loaded data")
+    
     training_data_torch = torch.from_numpy(training_data_np)
     data_loader = DataLoader(training_data_torch, batch_size=1024, shuffle = True)
     model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=5).to(device)
