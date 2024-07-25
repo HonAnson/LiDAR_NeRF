@@ -55,7 +55,6 @@ def getSamplingPositions(centres, directions, distance, t, num_bins = 100):
     pos = magnitudes*dir_tiled + centres_tiled
     return pos
 
-
 def computeCumulativeTransmittance(alpha):
     # density have shape [num_points, num_bin]
     T = torch.cumprod((1 - alpha), 1)
@@ -72,14 +71,12 @@ def computeExpectedDepth(h, sample_pos):
 # returns pytorch tensor of sigmoid of projected SDF
 def getTargetCumulativeTransmittance(t, variance = 1):
     sigmoid = nn.Sigmoid()
-    target_T = sigmoid(-t)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
+    target_T = sigmoid(-t/variance)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
     return target_T
 
-def getTargetTerminationDistribution(target_cumul_trans, delta):
-    target_h = (target_cumul_trans * (1 - target_cumul_trans)) * delta
+def getTargetTerminationDistribution(target_T, delta, variance = 1):
+    target_h = (target_T * (1 - target_T)) * (delta / variance)
     return target_h
-
-
 
 
 class LiDAR_NeRF(nn.Module):
@@ -161,15 +158,15 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             loss_h = KL_loss(h_pred, h_target)
             loss_d = MSE_loss(d_pred, d_target)
 
-            loss_together = loss_T + loss_h + loss_d
+            loss_together = loss_T + loss_h + loss_d        # TODO: hyperparameter tunning
 
             optimizer.zero_grad()
             loss_together.backward()
             optimizer.step()
 
-            ### Prin loss messages
-            if count % 100 == 0:
-                training_losses.append(loss.item())
+            ### Prin loss messages and store losses
+            if count % 500 == 0:
+                training_losses.append(loss_together.item())
             count += 1
             message = f"Training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss.item()}"
             printProgress(message)

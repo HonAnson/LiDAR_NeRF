@@ -57,6 +57,8 @@ target_cumtrans = torch.tensor(y_data, dtype=torch.float32).view(-1, 1)
 target_cumtrans = rearrange(target_cumtrans, 'a 1 -> a')
 target_depth = torch.tensor(10, dtype = torch.float32)
 target_h = (target_cumtrans ) * (1 - target_cumtrans) * 0.2
+
+
 # Initialize the model, loss function, and optimizer
 model = DensityFittingModel()
 MSE_loss= nn.MSELoss()
