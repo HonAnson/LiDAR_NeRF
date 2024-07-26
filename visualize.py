@@ -108,7 +108,7 @@ def visualizeDir(model_path, output_path, position, direction):
     df_temp = df_temp.head(100000)
     pos_np = pos.numpy()
     df_temp['X'] = pos_np[:,0]
-    df_temp['Y'] = pos_np[:,1
+    df_temp['Y'] = pos_np[:,1]
     df_temp['Z'] = pos_np[:,2]
     df_temp.to_csv(output_path, index=False)
     print(f'\nVisualizing output saved to {output_path}')
