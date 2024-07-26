@@ -37,15 +37,19 @@ def cart2sph(pcd_array, pose_position):
     output = array([r, elev, pan])
     return rearrange(output, 'a b -> b a') #take transpose
 
-def getTargetPosition(pcd_array, pose_position):
+def getDirection(pcd_array, pose_position):
     pcd_local_aligned = pcd_array - pose_position
-    return pcd_local_aligned
+    distance = np.sqrt((pcd_local_aligned**2).sum(1))    
+    directions = pcd_local_aligned / distance
+    return directions
+
 
 def preProcess(data):
     """Transform registered point clouds into giant array for model training
     input: data of type dict, with keys = frames
     output: n*6 numpy array
     """
+    scene_points = np.zeros(1,3)
     keys = list(data.keys())
     output = np.zeros((1,6))
     iter = 0
@@ -53,17 +57,21 @@ def preProcess(data):
     for key in keys:
         pcd_cart = np.array(data[key]['point_cloud'])
         pose_translation = np.array(data[key]['pose_translation'])
-        
-
+        scene_points = np.vstack((scene_points, pcd_cart, pose_translation))
         n = pcd_cart.shape[0]
         pose_position_tiled = np.tile(pose_translation, (n,1))
-        training_data = np.hstack((pose_position_tiled, ))
+        directions = getDirection(pcd_cart, pose_position_tiled)
+        breakpoint()
+        training_data = np.hstack((pose_position_tiled, directions, ))
         output = np.vstack((output, training_data))
         if iter % 50 == 0:
             message = f"Preparing data ... ({iter}/{total_iter})"
             printProgress(message)
         iter += 1
-    return output[1:,:]
+    output = output[1:,:]
+
+    # TODO: work on this part later
+    return output
 
 
 
@@ -72,6 +80,7 @@ if __name__ == "__main__":
     path = r'datasets/registered/' + name + r'.json'
     data = loadDataFromRegisteredSlam(path)
     training_data = preProcess(data)
+
     # output_name = name + r'.npy'
     # np.save(output_name, training_data)
     # print(f"file have been saved to {output_name}")
