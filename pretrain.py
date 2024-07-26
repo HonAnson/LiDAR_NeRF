@@ -37,6 +37,9 @@ def cart2sph(pcd_array, pose_position):
     output = array([r, elev, pan])
     return rearrange(output, 'a b -> b a') #take transpose
 
+def getTargetPosition(pcd_array, pose_position):
+    pcd_local_aligned = pcd_array - pose_position
+    return pcd_local_aligned
 
 def preProcess(data):
     """Transform registered point clouds into giant array for model training
@@ -50,11 +53,12 @@ def preProcess(data):
     for key in keys:
         pcd_cart = np.array(data[key]['point_cloud'])
         pose_translation = np.array(data[key]['pose_translation'])
+        
 
-        n = pcd_sph.shape[0]
-        pose_position_array = np.tile(pose_translation, (n,1))
-        pcd_with_pose_position = np.hstack((pose_position_array, ))
-        output = np.vstack((output, pcd_with_pose_position))
+        n = pcd_cart.shape[0]
+        pose_position_tiled = np.tile(pose_translation, (n,1))
+        training_data = np.hstack((pose_position_tiled, ))
+        output = np.vstack((output, training_data))
         if iter % 50 == 0:
             message = f"Preparing data ... ({iter}/{total_iter})"
             printProgress(message)
