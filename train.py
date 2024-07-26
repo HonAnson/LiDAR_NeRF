@@ -1,14 +1,14 @@
 import numpy as np
-import os
+# import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-import torch.optim as optim
-import json
+# import torch.optim as optim
+# import json
 # from tqdm import tqdm       # for showing progress when training
 # import open3d as o3d        # for getting point cloud register
 from einops import rearrange, repeat
-from numpy import sin, cos
+# from numpy import sin, cos
 from utility import printProgress
 
 # def getDirections(angles):
@@ -126,11 +126,12 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             
             # inference
             xyz_pred = model(sample_pos, sample_dir)
-            depth_pred = torch.sqrt((xyz_pred**2).sum(1))          # squared of predicted depth actually
 
-            sigmoid = nn.Sigmoid()
-            depth_pred_sigmoid = sigmoid(depth_pred*3)
-            depth_target_sigmoid = sigmoid(depth_target*3) 
+            
+            depth_pred = torch.sqrt((xyz_pred**2).sum(1))          # squared of predicted depth actually
+            
+            depth_pred_sigmoid = depth_pred
+            depth_target_sigmoid = depth_target
             loss = loss_MSE(depth_pred_sigmoid,depth_target_sigmoid)         # + lossEikonal
             
             optimizer.zero_grad()

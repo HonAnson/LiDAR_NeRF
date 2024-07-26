@@ -50,11 +50,10 @@ def preProcess(data):
     for key in keys:
         pcd_cart = np.array(data[key]['point_cloud'])
         pose_translation = np.array(data[key]['pose_translation'])
-        pcd_sph = cart2sph(pcd_cart, pose_translation)
 
         n = pcd_sph.shape[0]
         pose_position_array = np.tile(pose_translation, (n,1))
-        pcd_with_pose_position = np.hstack((pcd_sph, pose_position_array))
+        pcd_with_pose_position = np.hstack((pose_position_array, ))
         output = np.vstack((output, pcd_with_pose_position))
         if iter % 50 == 0:
             message = f"Preparing data ... ({iter}/{total_iter})"
