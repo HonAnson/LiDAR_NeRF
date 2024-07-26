@@ -124,8 +124,24 @@ this time using MSE loss between GT cumulative transmittance and predicted cumul
 - Using these values, predicted_depth = (x_hat^2 + y_hat^2 + z_hat^2)^0.5
 - Then MSE with actual depth
 - With perturbated even sampling along each rays
-### Trail 0
+
+### Trial 0
 - Training with 8 ephoch, 1024 batch size, 100bin sampling density
+
+
+## Version Euclidean
+- This version revolve around using the model to predict distance of points from camera
+
+### Trial 0
+- The idea here is to use explicit distance prediction
+- Using the equation: `laser_dir * laser_dist + laser_origin = points_pred`
+- where `laser_dir`, `laser_origin`, are known
+- laser_dist are predicted through MLP using `laser_dir` and `laser_origin`
+- After `points_pred` are computed, it is compared to `points_target` with L2 loss
+- As process is differentiable, the MLP can be optimized with back propergation
+
+
+### Trial 1
 
 
 

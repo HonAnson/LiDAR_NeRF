@@ -23,7 +23,6 @@ from utility import printProgress
 def getSpacing(num_points, num_bins):
     """return a [num_points*num_bins, 1] pytorch tensor
     """
-    # TODO: add hyperparameter for tuning "slope" of inverse sigmoid function
     # create a list of magnitudes with even spacing from 0 to 1
     t = torch.linspace(0,1, num_bins).expand(num_points, num_bins)  # [batch_size, num_bins//2]
     
@@ -33,26 +32,24 @@ def getSpacing(num_points, num_bins):
     upper = torch.cat((mid, t[:, -1:]), -1)
     u = torch.rand(t.shape)
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
-    # hard code start and end value of spacing to avoid infinity
-    t[:,0] = 1e-4
-    t[:,-1] = 0.999
-    # apply inverse sigmoid function to even spacing
+    # hard code start and end value of spacing
     t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1] 
     return t  
 
-def getSamplesAndTarget(centres, directions, depth, num_bins = 100):
+def getSamplesAndTarget(centres, directions, points, num_bins = 100):
     num_points = centres.shape[0]
-
     centres_tiled = repeat(centres, 'n c-> (n b) c', b = num_bins)
     directions_tiled = repeat(directions, 'n c-> (n b) c', b = num_bins)
+    relative_pos = points - centres
+    depth = torch.sqrt((relative_pos**2).sum(1))
     depth_tiled = repeat(depth, 'n -> (n b) 1', b = num_bins)
     t = getSpacing(num_points, num_bins)
-
     sample_magnitudes = t*depth_tiled
     sample_pos = directions_tiled*sample_magnitudes + centres_tiled   # [num_bins*num_points, 3]
-    target_depth = rearrange(depth_tiled - sample_magnitudes, 'nb 1 -> nb')
 
-    return sample_pos, directions_tiled, target_depth
+    # tile points too
+    points_target = repeat(points, 'n c-> (n b) c', b = num_bins)
+    return sample_pos, directions_tiled, points_target
 
 
 def warpu2d(u, focus = torch.tensor(1)):
@@ -84,7 +81,7 @@ class LiDAR_NeRF(nn.Module):
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim//2), nn.ReLU(),
-            nn.Linear(hidden_dim//2,3), nn.ReLU()
+            nn.Linear(hidden_dim//2, 1), nn.ReLU()
         )
         
     @staticmethod
@@ -106,7 +103,7 @@ class LiDAR_NeRF(nn.Module):
         return output
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 10):
     training_losses = []
     loss_MSE = nn.MSELoss()
     num_batch_in_data = len(dataloader)
@@ -115,25 +112,20 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
         for iter, batch in enumerate(dataloader):
 
             # parse the batch
-            centers = batch[:,0:3]
-            directions = batch[:,3:6]
-            depth = batch[:,6]
+            laser_org = batch[:,0:3]
+            laser_dir = batch[:,3:6]
+            points = batch[:,6:9]
 
-            sample_pos, sample_dir,  depth_target = getSamplesAndTarget(centers, directions , depth, num_bins=num_bins)
-            sample_pos = sample_pos.to(device)
-            sample_dir = sample_dir.to(device)
-            depth_target = (depth_target).to(device, dtype = torch.float32)
+            sample_pos, sample_dir, points_target = getSamplesAndTarget(laser_org, laser_dir, points, num_bins=num_bins)
+            sample_pos = sample_pos.to(device, dtype = torch.float32)
+            sample_dir = sample_dir.to(device, dtype = torch.float32)
+            points_target = points_target.to(device, dtype = torch.float32)
             
             # inference
-            xyz_pred = model(sample_pos, sample_dir)
+            laser_dist_pred = model(sample_pos, sample_dir)
+            points_pred = sample_dir* laser_dist_pred + sample_pos
 
-            
-            depth_pred = torch.sqrt((xyz_pred**2).sum(1))          # squared of predicted depth actually
-            
-            depth_pred_sigmoid = depth_pred
-            depth_target_sigmoid = depth_target
-            loss = loss_MSE(depth_pred_sigmoid,depth_target_sigmoid)         # + lossEikonal
-            
+            loss = loss_MSE(points_pred,points_target)         # + lossEikonal
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -154,22 +146,24 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using {device} device")
 
-    data_path = r'datasets/training_cumulative/building.npy'
+    data_path = r'datasets/training_euclidean/building.npy'
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     print("Loaded data")
     
     training_data_torch = torch.from_numpy(training_data_np)
-    data_loader = DataLoader(training_data_torch, batch_size=1024, shuffle = True)
+    data_loader = DataLoader(training_data_torch, batch_size=2048, shuffle = True)
     model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=5).to(device)
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
 
     # Train model
-    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 4, device=device)
+    ver_name = "ver_euclidean_trial0"
+    print("\nTraining version: " + ver_name)
+    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 8, device=device)
     losses_np = np.array(losses)
-    np.save('ver_euclidean_trial0_losses', losses_np)
+    np.save(ver_name + '_losses', losses_np)
     print("\nTraining completed")
 
     ### Save the model
-    torch.save(model.state_dict(), 'local/models/ver_euclidean_trial0.pth')
+    torch.save(model.state_dict(), 'local/models/' + ver_name + '.pth')
