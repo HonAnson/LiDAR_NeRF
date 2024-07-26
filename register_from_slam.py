@@ -27,10 +27,8 @@ def longtPassFilter(points, threshold = 0.1):
 def quat2RotationMatrix(q):
     """
     Convert a quaternion into a rotation matrix.
-    
     Args:
     q (numpy.ndarray): A 4-element array representing the quaternion (w, x, y, z)
-    
     Returns:
     numpy.ndarray: A 3x3 rotation matrix
     """

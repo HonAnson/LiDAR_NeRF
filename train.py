@@ -149,15 +149,16 @@ if __name__ == "__main__":
     
     training_data_torch = torch.from_numpy(training_data_np)
     data_loader = DataLoader(training_data_torch, batch_size=1024, shuffle = True)
-    model = LiDAR_NeRF(hidden_dim=256, embedding_dim_dir=5).to(device)
+    model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=8, embedding_dim_pos=8).to(device)
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-6)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
 
     # Train model
-    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 4, device=device)
+    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 8, device=device)
     losses_np = np.array(losses)
-    # np.save('ver_euclidean_trial0_losses', losses_np)
-    # print("\nTraining completed")
+
+    np.save('ver_euclidean_trial1_losses', losses_np)
+    print("\nTraining completed")
 
     # ### Save the model
     # torch.save(model.state_dict(), 'local/models/ver_euclidean_trial0.pth')

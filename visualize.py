@@ -1,5 +1,4 @@
 import open3d
-import numpy 
 import torch
 from train import LiDAR_NeRF
 from einops import repeat, rearrange
@@ -7,113 +6,46 @@ from numpy import cos, sin, array, sqrt, arctan2
 import pandas as pd
 from utility import printProgress
 import numpy as np
+from register_from_slam import quat2RotationMatrix
 
-def sph2cart(ang):
-    ele = ang[:,0]
-    pan = ang[:,1]
-    x = cos(ele)*cos(pan)
-    y = cos(ele)*sin(pan)
-    z = sin(ele)
-    output = array([x,y,z])
-    return rearrange(output, 'a b -> b a') #take transpose
+def getMask(points, camera_center, camera_direction, image_height = 800, image_width = 800, focal_length = 1):
+        # Normalize the camera direction to get the viewing direction
+    camera_direction = camera_direction / np.linalg.norm(camera_direction)
 
-def getAng(points):
-    """ Convert a n*3 point cloud, 
-    with camera centre at pose_position from cartesian coordinate in global frame
-    to global algined spherical coordinate at camera frame
-    
-    """
-    x, y, z = points[0], points[1], points[2]
-    XsqPlusYsq = x**2 + y**2
-    elev = arctan2(z, sqrt(XsqPlusYsq))
-    pan = arctan2(y, x)
-    return elev, pan
+    # Compute the right and up vectors for the camera coordinate system
+    up_vector = np.array([0, 1, 0])
+    right_vector = np.cross(camera_direction, up_vector)
+    right_vector /= np.linalg.norm(right_vector)
+    up_vector = np.cross(right_vector, camera_direction)
+    up_vector /= np.linalg.norm(up_vector)
 
+    # Create the camera rotation matrix
+    R = np.vstack([right_vector, up_vector, -camera_direction])
 
+    # Translate points so the camera center is at the origin
+    translated_points = points - camera_center
 
-def visualize360(model_path, output_path):
-    """ Visualize reconstruction from model and position"""
-    #### Load the model and try to "visualize" the model's datapoints
-    model_evel = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15, device = 'cpu')
-    model_evel.load_state_dict(torch.load(model_path))
-    model_evel.eval(); # Set the model to inference mode
+    # Rotate points into the camera coordinate system
+    camera_coords = np.dot(R, translated_points.T).T
 
-    ### Render some structured pointcloud for evaluation
-    with torch.no_grad():
-        dist = 0.05 # initial distanc for visualization
-        pos = torch.zeros((100000,3))
-        ele = torch.linspace(-0.34, 0.3, 100)
-        pan = torch.linspace(-3.14, 3.14, 1000)
-        ele_tiled = repeat(ele, 'n -> (r n) 1', r = 1000)
-        pan_tiled = repeat(pan, 'n -> (n r) 1', r = 100)
-        ang = torch.cat((ele_tiled, pan_tiled), dim=1)
+    # Perspective projection
+    projected_points = focal_length * (camera_coords[:, :2] / camera_coords[:, 2][:, np.newaxis])
 
-        # direction for each "point" from camera centre
-        directions = torch.tensor(sph2cart(array(ang)))
+    # Scale and shift points to fit the image dimensions
+    projected_points[:, 0] = (projected_points[:, 0] + 1) * image_width / 2
+    projected_points[:, 1] = (1 - projected_points[:, 1]) * image_height / 2
 
-        for i in range(1000):
-            output2 = model_evel(pos, ang)
-            temp = torch.sign(output2)
-            pos += directions * dist * temp
-            printProgress(f'visualizing... ({i}/100)')
-
-    ### Save to csv for visualization
-    df_temp = pd.read_csv('local/visualize/dummy.csv')
-    df_temp = df_temp.head(100000)
-    pos_np = pos.numpy()
-    df_temp['X'] = pos_np[:,0]
-    df_temp['Y'] = pos_np[:,1]
-    df_temp['Z'] = pos_np[:,2]
-    df_temp.to_csv(output_path, index=False)
-    print(f'\nVisualizing output saved to {output_path}')
-    return
+    return projected_points
 
 
 
 
-def visualizeDir(model_path, output_path, position, direction):
-    """ Visualize reconstruction from model and position"""
-    # TODO: update function so that I can use quaterion as direction
-    #### Load the model and try to "visualize" the model's datapoints
-    model_evel = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15, device = 'cpu')
-    model_evel.load_state_dict(torch.load(model_path))
-    model_evel.eval(); # Set the model to inference mode
-    
-    ### evaluate direction
-    ele_dir, pan_dir = getAng(direction)
-    ele_dir = float(ele_dir)
-    pan_dir = float(pan_dir)
-    position_tiled = repeat(position, 'd-> r d', r = 100000)
 
-    ### Render some structured pointcloud for evaluation
-    with torch.no_grad():
-        pos = torch.tensor(position_tiled, dtype = torch.float32)
-        ele = torch.linspace(-0.2, 0.2, 100)
-        pan = torch.linspace(-0.4, 0.4, 1000)
 
-        ele_tiled = repeat(ele, 'n -> (r n) 1', r = 1000)
-        pan_tiled = repeat(pan, 'n -> (n r) 1', r = 100)
-        ang = torch.cat((ele_tiled, pan_tiled), dim=1)
 
-        # direction for each "point" from camera centre
-        directions = torch.tensor(sph2cart(array(ang)))
 
-        xyz_evel = model_evel(pos, ang)
-        depth_evel = torch.sqrt((xyz_evel**2).sum(1))
-        depth_evel = rearrange(depth_evel, 'a -> a 1')
-        pos += directions * depth_evel
 
-    ### Save to csv for visualization
-    df_temp = pd.read_csv('local/visualize/dummy.csv')
-    df_temp = df_temp.head(100000)
-    pos_np = pos.numpy()
-    df_temp['X'] = pos_np[:,0]
-    df_temp['Y'] = pos_np[:,1]
-    df_temp['Z'] = pos_np[:,2]
-    df_temp.to_csv(output_path, index=False)
-    print(f'\nVisualizing output saved to {output_path}')
 
-    return pos_np
 
 if __name__ == "__main__":
     # NOTE: camera points at [1,0,0] when unrotated
@@ -122,7 +54,7 @@ if __name__ == "__main__":
     
     position = array([0,0,0])
     direction = array([1,0,0])
-    pcd = visualizeDir(model_path, output_path, position, direction)
+    pcd = visualize(model_path, output_path, position, direction)
 
 
 
