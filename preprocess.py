@@ -23,21 +23,6 @@ def loadDataFromRegisteredSlam(path):
     return data
 
 
-# def cart2sph(pcd_array, pose_position):
-#     """ Convert a n*3 point cloud, 
-#     with camera centre at pose_position from cartesian coordinate in global frame
-#     to global algined spherical coordinate at camera frame
-    
-#     """
-#     pcd_local_aligned = pcd_array - pose_position
-#     x, y, z = pcd_local_aligned[:,0], pcd_local_aligned[:,1], pcd_local_aligned[:,2]
-#     XsqPlusYsq = x**2 + y**2
-#     r = sqrt(XsqPlusYsq + z**2)
-#     elev = arctan2(z, sqrt(XsqPlusYsq))
-#     pan = arctan2(y, x)
-#     output = array([r, elev, pan])
-#     return rearrange(output, 'a b -> b a') #take transpose
-
 def getDistanceAndDirection(pcd_array, pose_position):
     """ Convert point cloud and camera position to training data 
     Input: 
@@ -70,9 +55,9 @@ def prepareTrainingData(data):
     for key in keys:
         pcd_cart = np.array(data[key]['point_cloud'])
         ray_origin = np.array(data[key]['pose'])
-        scene_points = np.vstack((scene_points, pcd_cart))
-        scene_points = np.vstack((scene_points,ray_origin))
+        scene_points = np.vstack((scene_points, pcd_cart, ray_origin))     # for scaling the scene
         distance, ray_direction = getDistanceAndDirection(pcd_cart, ray_origin)
+
 
         n = distance.shape[0]
         ray_origin_tiled = np.tile(ray_origin, (n,1))
