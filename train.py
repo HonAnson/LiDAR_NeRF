@@ -66,8 +66,6 @@ def warpu2d(u, focus = torch.tensor(1)):
     return d_netural + focus
 
 
-
-
 class LiDAR_NeRF(nn.Module):
     def __init__(self, embedding_dim_pos = 5, embedding_dim_dir = 5, hidden_dim = 256, device = 'cuda'):
         super(LiDAR_NeRF, self).__init__()
@@ -129,7 +127,11 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             # inference
             xyz_pred = model(sample_pos, sample_dir)
             depth_pred = torch.sqrt((xyz_pred**2).sum(1))          # squared of predicted depth actually
-            loss = loss_MSE(depth_pred,depth_target)         # + lossEikonal
+
+            sigmoid = nn.Sigmoid()
+            depth_pred_sigmoid = sigmoid(depth_pred*3)
+            depth_target_sigmoid = sigmoid(depth_target*3) 
+            loss = loss_MSE(depth_pred_sigmoid,depth_target_sigmoid)         # + lossEikonal
             
             optimizer.zero_grad()
             loss.backward()
