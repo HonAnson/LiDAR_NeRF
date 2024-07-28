@@ -1,15 +1,58 @@
 import open3d
-import torch
 from train import LiDAR_NeRF
 from einops import repeat, rearrange
 from numpy import cos, sin, array, sqrt, arctan2
-import pandas as pd
 from utility import printProgress
 import numpy as np
 from register_from_slam import quat2RotationMatrix
 
-def getMask(points, camera_center, camera_direction, image_height = 800, image_width = 800, focal_length = 1):
-        # Normalize the camera direction to get the viewing direction
+
+
+# for quering model
+def getPsudoImgVec(dir, img_num_pixel_width = 800):
+    """ Given a direction vector as input, 
+    return a set (img_height * img_width) of vectors 
+    that points +- 38.4 degrees of input vector
+    """
+    x_hat = np.array([1.43580442])    # vector with length f pointing at x direction
+    x_hat = repeat(x_hat, '1 -> h w', h = img_num_pixel_width, w = img_num_pixel_width)
+    temp = np.arange(-0.5,0.5,1/img_num_pixel_width)
+    y_hat, z_hat = np.meshgrid(temp,temp)
+    breakpoint()
+
+    # normalize them
+
+    # figure out rotation matrix that rotate [1,0,0] to input direction
+
+    # rotate the set of vector to align with input direction
+
+    return 
+
+
+
+def quat2RotationMatrix(q):
+    """
+    Convert a quaternion into a rotation matrix.
+    Args:
+    q (numpy.ndarray): A 4-element array representing the quaternion (w, x, y, z)
+    Returns:
+    numpy.ndarray: A 3x3 rotation matrix
+    """
+    w, x, y, z = q
+
+    # Compute the rotation matrix elements
+    R = np.array([
+        [1 - 2*y*y - 2*z*z, 2*x*y - 2*z*w, 2*x*z + 2*y*w],
+        [2*x*y + 2*z*w, 1 - 2*x*x - 2*z*z, 2*y*z - 2*x*w],
+        [2*x*z - 2*y*w, 2*y*z + 2*x*w, 1 - 2*x*x - 2*y*y]
+    ])
+    return R
+
+
+
+def getMask(points, camera_center, camera_direction, focal_length, image_height, image_width):
+
+    # Normalize the camera direction to get the viewing direction
     camera_direction = camera_direction / np.linalg.norm(camera_direction)
 
     # Compute the right and up vectors for the camera coordinate system
@@ -34,6 +77,16 @@ def getMask(points, camera_center, camera_direction, image_height = 800, image_w
     # Scale and shift points to fit the image dimensions
     projected_points[:, 0] = (projected_points[:, 0] + 1) * image_width / 2
     projected_points[:, 1] = (1 - projected_points[:, 1]) * image_height / 2
+
+
+    # now write the points into the "canvas"
+
+
+
+
+    # return canvas that gives if there is point that was projected into that pixel
+
+
 
     return projected_points
 
