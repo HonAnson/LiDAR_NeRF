@@ -2,21 +2,23 @@ import open3d
 from train import LiDAR_NeRF
 from einops import repeat, rearrange
 from numpy import cos, sin, array, sqrt, arctan2
-from utility import printProgress
+from utility import printProgress, quickVizNumpy
 import numpy as np
 from register_from_slam import quat2RotationMatrix
 
 
 
 # for quering model
-def getPsudoImgVec(dir, img_num_pixel_width = 800):
+def getPsudoImgVec(dir, img_num_pixel_edge = 800, fov_angle = 38.4):
     """ Given a direction vector as input, 
     return a set (img_height * img_width) of vectors 
     that points +- 38.4 degrees of input vector
     """
-    x_hat = np.array([1.43580442])    # vector with length f pointing at x direction
-    x_hat = repeat(x_hat, '1 -> h w', h = img_num_pixel_width, w = img_num_pixel_width)
-    temp = np.arange(-0.5,0.5,1/img_num_pixel_width)
+    fov_angle_rad = np.deg2rad(fov_angle)
+    f = 0.5 / (np.tan(fov_angle_rad))
+    x_hat = np.array([f])    # vector with focal length assuming image size is 1 meter * 1 meter
+    x_hat = repeat(x_hat, '1 -> h w', h = img_num_pixel_edge, w = img_num_pixel_edge)
+    temp = np.arange(-0.5,0.5,1/img_num_pixel_edge)
     y_hat, z_hat = np.meshgrid(temp,temp)
     breakpoint()
 
@@ -56,19 +58,15 @@ def getMask(points, camera_center, camera_direction, focal_length, image_height,
     camera_direction = camera_direction / np.linalg.norm(camera_direction)
 
     # Compute the right and up vectors for the camera coordinate system
-    up_vector = np.array([0, 1, 0])
+    up_vector = np.array([0, 0, 1])
     right_vector = np.cross(camera_direction, up_vector)
     right_vector /= np.linalg.norm(right_vector)
     up_vector = np.cross(right_vector, camera_direction)
     up_vector /= np.linalg.norm(up_vector)
 
-    # Create the camera rotation matrix
+    # create rotation matrix, and transform points to camera coordinate
     R = np.vstack([right_vector, up_vector, -camera_direction])
-
-    # Translate points so the camera center is at the origin
     translated_points = points - camera_center
-
-    # Rotate points into the camera coordinate system
     camera_coords = np.dot(R, translated_points.T).T
 
     # Perspective projection
@@ -78,17 +76,15 @@ def getMask(points, camera_center, camera_direction, focal_length, image_height,
     projected_points[:, 0] = (projected_points[:, 0] + 1) * image_width / 2
     projected_points[:, 1] = (1 - projected_points[:, 1]) * image_height / 2
 
-
     # now write the points into the "canvas"
-
-
-
-
-    # return canvas that gives if there is point that was projected into that pixel
-
-
-
-    return projected_points
+    canvas = np.zeros((image_height, image_width))
+    for i in range(projected_points.shape[0]):
+        y = 800 - int(projected_points[i,0])
+        x = int(projected_points[i,1])
+        if abs(x) < image_height and abs(y) < image_width:
+            canvas[x,y] = 1
+    
+    return canvas
 
 
 
