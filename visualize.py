@@ -101,10 +101,10 @@ def getMask(points, camera_center, camera_direction, focal_length, pixel_to_mete
 
 
 if __name__ == "__main__":
-    # NOTE: camera points at [1,0,0] when unrotated
-    model_path = r'local/models/ver_euclidean_trial3.pth'
-    output_path = r'local/visualize/ver_eucli_trial3.csv'
-    data_path = r'datasets/training_euclidean/building.npy' # for mask 
+    ### Paths ###
+    model_path = r'local/models/ver_euclidean_trial4.pth'
+    output_path = r'local/visualize/ver_eucli_trial4.csv'
+    data_path = r'datasets/training_euclidean/round_plant2.npy' # for mask 
 
 
     ### MODEL PARAMETERS ###
@@ -112,20 +112,26 @@ if __name__ == "__main__":
     EMBEDDING_DIM_DIR = 8
     EMBEDDING_DIM_POS = 8
 
+    ### VISUALISATION PARAMETERS ###
+    camera_pos = np.array([0,0,0])
+    camera_dir = np.array([1,0,0])
+    scaling = 0.06342109503565452
+
+    ####################################################
+    ### Enter model scale ###
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     # get poitns for creating mask
     np.random.shuffle(training_data_np)
-    points = training_data_np[0:1000000, 6:9] / 0.024429254132039887        # constant from dataset information
-    camera_pos = np.array([0,0,0])
-    camera_dir = np.array([1,0,0])
+    points_scaled = training_data_np[0:1000000, 6:9] / scaling        # constant from dataset information
+    camera_pos_scaled = camera_pos * scaling
 
     FOCAL_LENGTH = 1.43580442   # unit = meter
     pixel_to_meter = 500
     image_height = 500
     image_width = 500
 
-    mask = getMask(points, camera_pos, camera_dir, FOCAL_LENGTH, pixel_to_meter, image_height, image_width)
+    mask = getMask(points_scaled, camera_pos, camera_dir, FOCAL_LENGTH, pixel_to_meter, image_height, image_width)
     vectors = getPsudoImgVec(camera_dir, pixel_to_meter, image_width, image_height, FOCAL_LENGTH)
     
     dir = np.array([[0,0,0]])
@@ -136,9 +142,9 @@ if __name__ == "__main__":
 
     dir = dir[1:,:]
     # tile positions too             
-    pos_np = repeat(camera_pos, 'd -> n d', n = dir.shape[0])
-    pos = torch.tensor(pos_np)
-    dir = torch.tensor(dir)
+    pos_np = repeat(camera_pos_scaled, 'd -> n d', n = dir.shape[0])
+    pos_tensor = torch.tensor(pos_np)
+    dir_tensor = torch.tensor(dir)
 
     # inference from model
     model_evel = LiDAR_NeRF(hidden_dim=HIDDEN_DIM, embedding_dim_dir=EMBEDDING_DIM_DIR, embedding_dim_pos=EMBEDDING_DIM_POS)
@@ -146,10 +152,20 @@ if __name__ == "__main__":
     model_evel.eval(); # Set the model to inference mode
 
     with torch.no_grad():
-        pred_points = model_evel(pos, dir)
+        pred_points = model_evel(pos_tensor, dir_tensor)
+    
+    ### Back to world scale ###
+
+    pred_points_np = pred_points.detach().numpy()
+    pred_points_np /= scaling
+
+    camera_pos_tiled = repeat(camera_pos, 'd -> n d', n = pred_points_np.shape[0])
+
+    # Calculate point distance from camera and multiply direction
+    dist = np.sqrt(np.sum((pred_points_np - camera_pos_tiled)**2, axis=1))
+    dist = rearrange(dist, 'n -> n 1')
+    pts_np = dir * dist
     breakpoint()
-    pts_np = pred_points.detach().numpy()
-    pts_np /= 0.024429254132039887
     # save the points for visualize
     # Load dummy csv
     df_temp = pd.read_csv('local/visualize/dummy.csv')
