@@ -80,10 +80,10 @@ for epoch in range(num_epochs):
     loss_depth = MSE_loss(rendered_depth, target_depth)
     # loss_h = MSE_loss(rendered_h, target_h)
     loss_h = KL_loss(rendered_h, target_h)
-    loss_cumtran = MSE_loss(rendered_cumtrans, target_cumtrans)
-    # loss_togehter = loss_depth + loss_cumtran + loss_h
+    loss_cumtran = BCE_loss(rendered_cumtrans, target_cumtrans)
+    loss_togehter = loss_depth + loss_cumtran + loss_h
     # loss_togehter = loss_cumtran + loss_h
-    loss_togehter = loss_h
+    # loss_togehter = loss_h
 
     # Backward pass and optimization
     optimizer.zero_grad()
@@ -107,7 +107,6 @@ target_h_np = target_h.detach().numpy()
 plt.figure(figsize=(10, 6))
 plt.plot(x_data, y_data,  label='Original data')
 plt.plot(x_data, output_np,  label='Predicted Density')
-
 plt.plot(x_data, target_h_np,  label='Target h')
 plt.plot(x_data, predicted_h_np,  label='Predicted h')
 plt.plot(x_data, predicted_cumtran_np,  label='Predicted Cum Tran line')

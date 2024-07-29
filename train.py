@@ -24,10 +24,10 @@ def getDirections(angles):
 
 
 
-def getSpacing(num_points, num_bins, variance = 0.1):
-    """return a [num_points*num_bins, 1] pytorch tensor
+def getSpacing(num_points, num_bins):
+    """return a [num_points, num_bins] pytorch tensor
+    Give perturbated even spacing value from 0 to 1 along num_bin dimension
     """
-    # TODO: add hyperparameter for tuning "slope" of inverse sigmoid function
     # create a list of magnitudes with even spacing from 0 to 1
     t = torch.linspace(0,1, num_bins).expand(num_points, num_bins)  # [batch_size, num_bins//2]
     
@@ -39,22 +39,31 @@ def getSpacing(num_points, num_bins, variance = 0.1):
     t = lower + (upper - lower) * u  # [batch_size, nb_bins//2]
     # hard code start and end value of spacing to avoid infinity
     t[:,0], t[:,-1] = 1e-3, 0.999
-    # apply inverse sigmoid function to even spacing
+    return t
+
+
+def invSigmoid(t, dist, sampling_variance):
     t = torch.log(t / ((1 - t) + 1e-8))
+    magnitude = t * sampling_variance + dist
+    return magnitude
 
-    t /= 13.8136 # constant obtained by invsigmoid(0.999)*2, which normalize t to between -0.5 to 0.5
-    delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([10]).expand(num_points, 1)), -1)
-    # t = rearrange(t, 'a b -> (a b) 1')  # [num_bins*batch_size, 1]
-    # delta = rearrange(delta, 'a b -> (a b) 1')  # [num_bins*batch_size, 1]
-    return t , delta
+def getSamplingPositions(centres, directions, distance, sampling_variance, t, num_bins = 100):
+    # apply inverse sigmoid function to even spacing
 
-def getSamplingPositions(centres, directions, distance, t, num_bins = 100):
-    dist_tiled = repeat(distance, 'n -> n b', b = num_bins)
-    magnitudes = repeat(t + dist_tiled, 'n b -> n b c', c = 3)   # [num_points, num_bin, 3]
+    magnitudes = invSigmoid(t, distance, sampling_variance)
+    # TODO
+
+
+
+
+
     dir_tiled = repeat(directions, 'n c -> n b c', b = num_bins)
     centres_tiled = repeat(centres, 'n c -> n b c', b = num_bins) # [num_points, num_bin, 3]
+
+
     pos = magnitudes*dir_tiled + centres_tiled
-    return pos
+    delta = 1
+    return pos, delta
 
 def computeCumulativeTransmittance(alpha):
     T = torch.cumprod((1 - alpha), 1)
@@ -122,7 +131,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
     count = 0
     KL_loss = nn.KLDivLoss()
     MSE_loss = nn.MSELoss()
-    #loss_bce = nn.BCELoss()
+    loss_bce = nn.BCELoss()
     for epoch in range(num_epoch):
         for iter, batch in enumerate(dataloader):
 
@@ -133,8 +142,16 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             distance = batch[:,6]
 
             # prepare sampling positions
-            t, delta = getSpacing(num_points, num_bins)
+            t = getSpacing(num_points, num_bins)    # [num_pts, num_bin]
+
+
+
+
+
             sample_pos = getSamplingPositions(centres, directions, distance, t, num_bins=num_bins)
+
+            # TODO: work on getting delta, delta shall be a spacial thing
+            # delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([10]).expand(num_points, 1)), -1) # work on getting delta
 
             # transfer tensors to device
             t = t.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
