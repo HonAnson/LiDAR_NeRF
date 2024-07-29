@@ -79,7 +79,6 @@ def getTargetTerminationDistribution(target_T, delta, variance = 1):
     target_h[:,-1] = 0
     return target_h
 
-
 class LiDAR_NeRF(nn.Module):
     def __init__(self, embedding_dim_pos = 10, embedding_dim_dir = 4, hidden_dim = 256, device = 'cuda'):
         super(LiDAR_NeRF, self).__init__()
@@ -98,7 +97,7 @@ class LiDAR_NeRF(nn.Module):
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim//2), nn.ReLU(),
-            nn.Linear(hidden_dim//2,1), nn.ReLU()      # relu for last layer, as we are predicting density of at locations
+            nn.Linear(hidden_dim//2,1), nn.ReLU()      # relu for last layer, as we are predicting densities
         )
         
     @staticmethod
@@ -117,7 +116,7 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, variance = 1):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 1, prediction_variance = 1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
@@ -166,7 +165,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             optimizer.zero_grad()
             loss_together.backward()
             optimizer.step()
-            ### Prin loss messages and store losses
+            ### Print loss messages and store losses
             if count == 2:
                 breakpoint()
             if count % 500 == 0:
