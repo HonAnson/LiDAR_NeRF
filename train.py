@@ -44,48 +44,54 @@ def getSpacing(num_points, num_bins):
 
 def invSigmoid(t, dist, sampling_variance):
     t = torch.log(t / ((1 - t) + 1e-8))
-    magnitude = t * sampling_variance + dist
+    dist_tiled = repeat(dist, 'p -> p b', b = t.shape[1])
+    magnitude = t * sampling_variance + dist_tiled
     return magnitude
 
-def getSamplingPositions(centres, directions, distance, sampling_variance, t, num_bins = 100):
+def getSamplingPositions(centres, directions, distance, sampling_variance, num_bins = 100, num_points = 1024):
+    
     # apply inverse sigmoid function to even spacing
-
+    t = getSpacing(num_points, num_bins)  # [num_points, num_bins]
     magnitudes = invSigmoid(t, distance, sampling_variance)
-    # TODO
+    delta = torch.cat((magnitudes[:, 1:] - magnitudes[:, :-1], torch.tensor([1e10]).expand(num_points, 1)), -1) # work on getting delta
 
+    # reshape for calculation
+    magnitudes_tiled = rearrange(magnitudes, 'n b -> (n b) 1')
+    dir_tiled = repeat(directions, 'n c -> (n b) c', b = num_bins)
+    centres_tiled = repeat(centres, 'n c -> (n b) c', b = num_bins)
+    pos = magnitudes_tiled*dir_tiled + centres_tiled      # p = d*t + o
 
+    # reshape sampled position back to [num_points, num_bins, 3]
+    pos = rearrange(pos, '(n b) c -> n b c', n = num_points, b = num_bins)
+    return pos, delta, magnitudes
 
-
-
-    dir_tiled = repeat(directions, 'n c -> n b c', b = num_bins)
-    centres_tiled = repeat(centres, 'n c -> n b c', b = num_bins) # [num_points, num_bin, 3]
-
-
-    pos = magnitudes*dir_tiled + centres_tiled
-    delta = 1
-    return pos, delta
-
-def computeCumulativeTransmittance(alpha):
-    T = torch.cumprod((1 - alpha), 1)
+def computeCumulativeTransmittance(alpha, device):
+    K = torch.cumprod((1 - alpha), 1)   # K is just a temporary variable
+    ones = torch.ones((K.shape[0],1), device = device)
+    T = torch.cat((ones, K[:,:-1]), 1)
     return T
 
 def computeTerminationDistribution(T, alpha):
-    h = T * alpha
-    return h
+    h_temp = T * alpha
+    return h_temp
 
-def computeExpectedDepth(h, sample_pos):
-    d_hat = torch.sum(h * sample_pos, axis = 1)
+def computeExpectedDepth(h, magnitude):
+    d_hat = torch.sum(h * magnitude, axis = 1)
     return d_hat
 
-# returns pytorch tensor of sigmoid of projected SDF
-def getTargetCumulativeTransmittance(t, variance = 1):
+def getTargetCumulativeTransmittance(magnitude, distance, prediction_variance, device):
+    # add one dimension to distance for calculation
+    distance_temp = (rearrange(distance, 'p -> p 1')).to(device = device)
+    t = magnitude - distance_temp
     sigmoid = nn.Sigmoid()
-    target_T = sigmoid(-t/variance)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
+    target_T = sigmoid(-t/prediction_variance)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
     return target_T
 
 def getTargetTerminationDistribution(target_T, delta, variance = 1):
-    target_h = (target_T * (1 - target_T)) * (delta / variance)
+    target_h = (target_T[:-1] * (1 - target_T[1:])) 
+    breakpoint()
     target_h[:,-1] = 0
+    
     return target_h
 
 class LiDAR_NeRF(nn.Module):
@@ -125,7 +131,7 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 1, prediction_variance = 1):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.1, prediction_variance = 0.1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
@@ -137,46 +143,36 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 
             # parse the batch
             num_points = batch.shape[0]
-            centres = batch[:,0:3]
-            directions = batch[:,3:6]
+            laser_org = batch[:,0:3]
+            laser_dir = batch[:,3:6]
             distance = batch[:,6]
 
             # prepare sampling positions
-            t = getSpacing(num_points, num_bins)    # [num_pts, num_bin]
-
-
-
-
-
-            sample_pos = getSamplingPositions(centres, directions, distance, t, num_bins=num_bins)
-
-            # TODO: work on getting delta, delta shall be a spacial thing
-            # delta = torch.cat((t[:, 1:] - t[:, :-1], torch.tensor([10]).expand(num_points, 1)), -1) # work on getting delta
-
+            sample_pos, delta, magnitude = getSamplingPositions(laser_org, laser_dir, distance, sampling_variance, num_bins=num_bins, num_points = num_points)
+            
             # transfer tensors to device
-            t = t.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
-            delta = delta.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
+            delta = delta.to(device, dtype = torch.float32)  # [num_points, num_bin]
+            magnitude = magnitude.to(device, dtype = torch.float32)  # [num_points, num_bin]
             sample_pos = sample_pos.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
+
 
             # inference
             input_pos = rearrange(sample_pos, 'n b c -> (n b) c')
             density_pred = model(input_pos)
             density_pred = rearrange(density_pred, '(n b) 1 -> n b', n = num_points, b = num_bins)
-
             # compute cumulative transmittance from density prediction
             alpha = 1 - torch.exp(-density_pred * delta)
-            T_pred = computeCumulativeTransmittance(alpha)
-            h_pred = computeTerminationDistribution(T_pred, delta)
-            d_pred = computeExpectedDepth(h_pred, delta)
+            T_pred = computeCumulativeTransmittance(alpha, device)
+            h_pred = computeTerminationDistribution(T_pred, alpha)
+            d_pred = computeExpectedDepth(h_pred, magnitude)
 
             # also get target values
-            T_target = getTargetCumulativeTransmittance(t, variance = 0.1)
-            h_target = getTargetTerminationDistribution(t, delta, variance=0.1)
+            T_target = getTargetCumulativeTransmittance(magnitude, distance, prediction_variance, device = device)
+            h_target = getTargetTerminationDistribution(T_target, prediction_variance)
             d_target = distance.to(device, dtype = torch.float32)
 
             # calculate losses 
             loss_T = MSE_loss(T_pred,T_target)
-            # loss_h = KL_loss(h_pred, h_target)    # TODO: bug here, returning NAN, check DS NeRF source code for more
             loss_d = MSE_loss(d_pred, d_target)     # TODO: bug here too, model not converging
             loss_together = 10*loss_T + loss_d        # TODO: hyperparameter tunning
             optimizer.zero_grad()
@@ -200,10 +196,9 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using {device} device")
-    ####
-    # Choose data here
-    data_path = r'datasets/training_cumulative/building.npy'
-    ####
+    ### Choose data here ###
+    data_path = r'datasets/training_cumulative/round_plant2.npy'
+    ####################
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     print("Loaded data")
@@ -213,7 +208,7 @@ if __name__ == "__main__":
     model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15).to(device)
     optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
-    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device, variance = 1)
+    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
     losses_np = np.array(losses)
 
     # np.save('ver_cumulative_trial0_losses', losses_np)
