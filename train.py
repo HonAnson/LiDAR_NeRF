@@ -66,6 +66,7 @@ def getSamplingPositions(centres, directions, distance, sampling_variance, num_b
     return pos, delta, magnitudes
 
 def computeCumulativeTransmittance(alpha, device):
+    # alpha = 1 - exp(-density * delta)
     K = torch.cumprod((1 - alpha), 1)   # K is just a temporary variable
     ones = torch.ones((K.shape[0],1), device = device)
     T = torch.cat((ones, K[:,:-1]), 1)
@@ -81,18 +82,18 @@ def computeExpectedDepth(h, magnitude):
 
 def getTargetCumulativeTransmittance(magnitude, distance, prediction_variance, device):
     # add one dimension to distance for calculation
-    distance_temp = (rearrange(distance, 'p -> p 1')).to(device = device)
+    distance_temp = (rearrange(distance, 'p -> p 1')).to(device = device, dtype = torch.float32)
     t = magnitude - distance_temp
     sigmoid = nn.Sigmoid()
     target_T = sigmoid(-t/prediction_variance)    # note that 1 - sigmoid(x) = sigmoid(-x). And I am modelling cumulative transmittance as 1-sigmoid(x), centred at lidar measurement
     return target_T
 
 def getTargetTerminationDistribution(target_T, delta, variance = 1):
-    target_h = (target_T[:-1] * (1 - target_T[1:])) 
-    breakpoint()
+
+    target_h = (target_T * (1 - target_T)) * (delta / variance) 
     target_h[:,-1] = 0
-    
     return target_h
+
 
 class LiDAR_NeRF(nn.Module):
     def __init__(self, embedding_dim_pos = 10, embedding_dim_dir = 4, hidden_dim = 256, device = 'cuda'):
@@ -131,13 +132,13 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.1, prediction_variance = 0.1):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
-    KL_loss = nn.KLDivLoss()
+    KL_loss = nn.KLDivLoss(reduction = 'batchmean')
     MSE_loss = nn.MSELoss()
-    loss_bce = nn.BCELoss()
+    BCE_loss = nn.BCELoss()
     for epoch in range(num_epoch):
         for iter, batch in enumerate(dataloader):
 
@@ -160,6 +161,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             input_pos = rearrange(sample_pos, 'n b c -> (n b) c')
             density_pred = model(input_pos)
             density_pred = rearrange(density_pred, '(n b) 1 -> n b', n = num_points, b = num_bins)
+
             # compute cumulative transmittance from density prediction
             alpha = 1 - torch.exp(-density_pred * delta)
             T_pred = computeCumulativeTransmittance(alpha, device)
@@ -168,25 +170,26 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 
             # also get target values
             T_target = getTargetCumulativeTransmittance(magnitude, distance, prediction_variance, device = device)
-            h_target = getTargetTerminationDistribution(T_target, prediction_variance)
+            h_target = getTargetTerminationDistribution(T_target, delta, prediction_variance)
             d_target = distance.to(device, dtype = torch.float32)
-
             # calculate losses 
-            loss_T = MSE_loss(T_pred,T_target)
-            loss_d = MSE_loss(d_pred, d_target)     # TODO: bug here too, model not converging
-            loss_together = 10*loss_T + loss_d        # TODO: hyperparameter tunning
+            h_pred += 1e-8  # avoid under flow
+            h_pred /= rearrange(h_pred.sum(1), 'n -> n 1')  # make sure prediction is a valid distribution
+
+            loss_T = BCE_loss(T_pred,T_target)
+            loss_h = KL_loss(h_pred.log(), h_target)        #taking log because pytorch assume predicted value to be in log space
+            loss_d = MSE_loss(d_pred, d_target)     
+            loss_together = loss_T + loss_d + 5*loss_h     # TODO: hyperparameter tunning
+            # loss_together = loss_T + loss_d     # TODO: hyperparameter tunning
             optimizer.zero_grad()
             loss_together.backward()
             optimizer.step()
             ### Print loss messages and store losses
-            if count == 2:
-                breakpoint()
             if count % 500 == 0:
                 training_losses.append(loss_together.item())
             count += 1
-            message = f"Training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss: {loss_together.item()}"
+            message = f"Training model... epoch: ({epoch}/{num_epoch}) | iteration: ({iter}/{num_batch_in_data}) | loss_T: {loss_T.item():.4f} | loss_h: {loss_h.item():.4f} | loss_d: {loss_d.item():.4f} | loss: {loss_together.item():.4f}"
             printProgress(message)
-
         scheduler.step()
     return training_losses
 
