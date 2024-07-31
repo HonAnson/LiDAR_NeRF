@@ -139,6 +139,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
     KL_loss = nn.KLDivLoss(reduction = 'batchmean')
     MSE_loss = nn.MSELoss()
     BCE_loss = nn.BCELoss()
+    breakpoint()
     for epoch in range(num_epoch):
         for iter, batch in enumerate(dataloader):
 
@@ -163,7 +164,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             density_pred = rearrange(density_pred, '(n b) 1 -> n b', n = num_points, b = num_bins)
 
             # compute cumulative transmittance from density prediction
-            alpha = 1 - torch.exp(-density_pred * delta)
+            alpha = 1 - torch.exp(-(density_pred + 1e-6) * delta)
             T_pred = computeCumulativeTransmittance(alpha, device)
             h_pred = computeTerminationDistribution(T_pred, alpha)
             d_pred = computeExpectedDepth(h_pred, magnitude)
