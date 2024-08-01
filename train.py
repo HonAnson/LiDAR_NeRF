@@ -113,7 +113,7 @@ class LiDAR_NeRF(nn.Module):
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),               
             nn.Linear(hidden_dim, hidden_dim//2), nn.ReLU(),
-            nn.Linear(hidden_dim//2,1), nn.ReLU()      # relu for last layer, as we are predicting densities
+            nn.Linear(hidden_dim//2,1), nn.Softplus()      # relu for last layer, as we are predicting densities
         )
         
     @staticmethod
