@@ -49,7 +49,6 @@ def invSigmoid(t, dist, sampling_variance):
     return magnitude
 
 def getSamplingPositions(centres, directions, distance, sampling_variance, num_bins = 100, num_points = 1024):
-    
     # apply inverse sigmoid function to even spacing
     t = getSpacing(num_points, num_bins)  # [num_points, num_bins]
     magnitudes = invSigmoid(t, distance, sampling_variance)
@@ -89,7 +88,6 @@ def getTargetCumulativeTransmittance(magnitude, distance, prediction_variance, d
     return target_T
 
 def getTargetTerminationDistribution(target_T, delta, variance = 1):
-
     target_h = (target_T * (1 - target_T)) * (delta / variance) 
     target_h[:,-1] = 0
     return target_h
@@ -132,7 +130,7 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1, lambda1 = 1, lambda2 = 1, lambda3 = 1):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1, lambdaT = 1, lambdad = 1, lambdah = 1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
@@ -156,7 +154,6 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             delta = delta.to(device, dtype = torch.float32)  # [num_points, num_bin]
             magnitude = magnitude.to(device, dtype = torch.float32)  # [num_points, num_bin]
             sample_pos = sample_pos.to(device, dtype = torch.float32)  # [num_points, num_bin, 3]
-
 
             # inference
             input_pos = rearrange(sample_pos, 'n b c -> (n b) c')
@@ -198,25 +195,59 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 
 
 if __name__ == "__main__":
+    ######################
+    ### Job Parameters ###
+    ######################
+    JOB_NAME = r'ver_cumulative_trial0'
+    DATA_NAME = r'round_plant2'
+
+    ######################
+    ## Hyper Parameters ##
+    ######################
+    HIDDEN_DIM = 512
+    EMBEDDING_DIM_DIR = 10
+    EMBEDDING_DIM_POS = 15
+    LEARNING_RATE = 5e-6
+    BATCH_SIZE = 2048
+    NUM_EPOCH = 32
+    LAMBDA_T = 1
+    LAMBDA_d = 50
+    LAMBDA_h = 1
+    SAMPLING_VARIANCE = 0.5
+    PREDICTION_VARIANCE = 0.1
+    NUM_BINS = 100
+
+    #########################
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using {device} device")
-    ### Choose data here ###
-    data_path = r'datasets/training_cumulative/round_plant2.npy'
-    ####################
+    
+    data_path = r'datasets/training_cumulative/' + DATA_NAME + r'.npy'
     with open(data_path, 'rb') as file:
         training_data_np = np.load(file)
     print("Loaded data")
+    
     training_data_torch = torch.from_numpy(training_data_np)
-
-    data_loader = DataLoader(training_data_torch, batch_size=1024, shuffle = True)
-    model = LiDAR_NeRF(hidden_dim=512, embedding_dim_dir=15).to(device)
-    optimizer = torch.optim.Adam(model.parameters(),lr=5e-4)
+    data_loader = DataLoader(training_data_torch, batch_size= BATCH_SIZE, shuffle = True)
+    model = LiDAR_NeRF(hidden_dim=HIDDEN_DIM, embedding_dim_dir=EMBEDDING_DIM_DIR, embedding_dim_pos=EMBEDDING_DIM_POS).to(device)
+    optimizer = torch.optim.Adam(model.parameters(),lr=LEARNING_RATE)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[2, 4, 8, 16], gamma=0.5)
-    losses = train(model, optimizer, scheduler, data_loader, num_epoch = 16, device=device)
+    losses = train(model, 
+                   optimizer, 
+                   scheduler, 
+                   data_loader, 
+                   num_epoch = NUM_EPOCH, 
+                   device=device, 
+                   lambdaT = LAMBDA_T, 
+                   lambdad = LAMBDA_d, 
+                   lambdah = LAMBDA_h, 
+                   sampling_variance = SAMPLING_VARIANCE, 
+                   prediction_variance = PREDICTION_VARIANCE)
+                   
     losses_np = np.array(losses)
 
-    # np.save('ver_cumulative_trial0_losses', losses_np)
-    # print("\nTraining completed")
+    ### Save output
+    np.save('ver_cumulative_trial0_losses', losses_np)
+    print("\nTraining completed")
 
-    # ### Save the model
+    ### Save the model
     # torch.save(model.state_dict(), 'local/models/ver_cumulative_trial0.pth')
