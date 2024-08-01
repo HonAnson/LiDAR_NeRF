@@ -132,7 +132,7 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1, lambda1 = 1, lambda2 = 1, lambda3 = 1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
@@ -167,21 +167,21 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             alpha = 1 - torch.exp(-(density_pred + 1e-6) * delta)
             T_pred = computeCumulativeTransmittance(alpha, device)
             h_pred = computeTerminationDistribution(T_pred, alpha)
+            h_pred += 1e-8  # avoid under flow
+            h_pred /= rearrange(h_pred.sum(1), 'n -> n 1')  # make sure prediction is a valid distribution
             d_pred = computeExpectedDepth(h_pred, magnitude)
 
             # also get target values
             T_target = getTargetCumulativeTransmittance(magnitude, distance, prediction_variance, device = device)
             h_target = getTargetTerminationDistribution(T_target, delta, prediction_variance)
             d_target = distance.to(device, dtype = torch.float32)
-            # calculate losses 
-            h_pred += 1e-8  # avoid under flow
-            h_pred /= rearrange(h_pred.sum(1), 'n -> n 1')  # make sure prediction is a valid distribution
 
+            # calculate losses 
             loss_T = BCE_loss(T_pred,T_target)
             loss_h = KL_loss(h_pred.log(), h_target)        #taking log because pytorch assume predicted value to be in log space
             loss_d = MSE_loss(d_pred, d_target)     
-            loss_together = loss_T + loss_d + 5*loss_h     # TODO: hyperparameter tunning
-            # loss_together = loss_T + loss_d     # TODO: hyperparameter tunning
+            loss_together = loss_T + loss_d + loss_h     # TODO: hyperparameter tunning
+
             optimizer.zero_grad()
             loss_together.backward()
             optimizer.step()
