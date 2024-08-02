@@ -16,8 +16,6 @@ import matplotlib.pyplot as plt
 import mcubes
 import trimesh
 
-
-
 def sph2cart(ang):
     ele = ang[:,0]
     pan = ang[:,1]
@@ -118,9 +116,7 @@ def visualizeDir(model_path, output_path, position, direction):
     df_temp['Z'] = pos_np[:,2]
     df_temp.to_csv(output_path, index=False)
     print(f'\nVisualizing output saved to {output_path}')
-
     return
-
 
 
 def renderModel(model):
@@ -148,7 +144,6 @@ def renderModel(model):
     # # fn = lambda i0, i1 : net_fn(flat[i0:i1,None,:], viewdirs=np.zeros_like(flat[i0:i1]), network_fn=render_kwargs_test['network_fine'])
 
     # chunk = 1024*64
-    # raw = np.concatenate([fn(i, i+chunk).numpy() for i in range(0, flat.shape[0], chunk)], 0)
     # raw = np.reshape(raw, list(shape[:-1]) + [-1])
     sigma = np.maximum(raw[...,-1], 0.)
 
@@ -169,7 +164,7 @@ def renderModel(model):
 
 if __name__ == "__main__":
     # NOTE: camera points at [1,0,0] when unrotated
-    model_path = r'local/models/ver_cumulative_trial00.pth'
+    model_path = r'local/models/ver_cumulative_trial02.pth'
     output_path = r'local/visualize/visualize.csv'
 
 
@@ -189,10 +184,6 @@ if __name__ == "__main__":
     renderModel(model_evel)
 
     
-    # visualize360(model_path,output_path)
-    # position = array([0,0,0])
-    # direction = array([1,0,0])
-    # visualizeDir(model_path, output_path, position, direction)
 
 
 

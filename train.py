@@ -193,7 +193,6 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
 
 
 
-
 if __name__ == "__main__":
     ######################
     ### Job Parameters ###

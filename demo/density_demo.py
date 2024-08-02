@@ -20,7 +20,7 @@ class DensityFittingModel(nn.Module):
 
 
     def forward(self, x):
-        x = self.softplus(self.fc1(x))
+        x = torch.relu(self.fc1(x))
         # x = torch.relu(self.fc3(x))
         # x = torch.relu(self.fc3(x))
         x = self.softplus(self.fc2(x))
@@ -76,14 +76,17 @@ for epoch in range(num_epochs):
     predicted_density = model(x_train)
     rendered_cumtrans, rendered_localtrans = render_cumtran(predicted_density)
     rendered_h = render_h(rendered_cumtrans, rendered_localtrans)
+    rendered_h += 1e-8
     rendered_depth = render_ray(rendered_h)
 
     loss_depth = MSE_loss(rendered_depth, target_depth)
-    # loss_h = MSE_loss(rendered_h, target_h)
-    loss_h = KL_loss(rendered_h, target_h)
+    loss_h = KL_loss(rendered_h.log(), target_h)
     loss_cumtran = BCE_loss(rendered_cumtrans, target_cumtrans)
-    loss_togehter = loss_depth + loss_cumtran + loss_h
+
+    # loss_togehter = loss_depth + loss_cumtran + loss_h
     # loss_togehter = loss_cumtran + loss_h
+    # loss_togehter = loss_cumtran
+    loss_togehter = loss_depth
     # loss_togehter = loss_h
 
     # Backward pass and optimization
@@ -105,12 +108,14 @@ output_np = output.detach().numpy()
 predicted_cumtran_np = predicted_cumtran.detach().numpy()
 predicted_h_np = predicted_h.detach().numpy()
 target_h_np = target_h.detach().numpy()
+
+
 plt.figure(figsize=(10, 6))
-plt.plot(x_data, y_data,  label='Original data')
-plt.plot(x_data, output_np,  label='Predicted Density')
-plt.plot(x_data, target_h_np,  label='Target h')
+plt.plot(x_data, predicted_cumtran_np,  label='Predicted T')
+plt.plot(x_data, y_data,  label='Target T')
 plt.plot(x_data, predicted_h_np,  label='Predicted h')
-plt.plot(x_data, predicted_cumtran_np,  label='Predicted Cum Tran line')
+plt.plot(x_data, target_h_np,  label='Target h')
+plt.plot(x_data, output_np,  label='Predicted Density')
 plt.legend()
 plt.show()
 
