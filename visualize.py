@@ -7,6 +7,16 @@ from numpy import cos, sin, array, sqrt, arctan2
 import pandas as pd
 from utility import printProgress
 import numpy as np
+import os, sys
+# os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+import numpy as np
+# import imageio
+import matplotlib.pyplot as plt
+import mcubes
+import trimesh
+
+
 
 def sph2cart(ang):
     ele = ang[:,0]
@@ -28,8 +38,6 @@ def getAng(points):
     elev = arctan2(z, sqrt(XsqPlusYsq))
     pan = arctan2(y, x)
     return elev, pan
-
-
 
 def visualize360(model_path, output_path):
     """ Visualize reconstruction from model and position"""
@@ -68,9 +76,6 @@ def visualize360(model_path, output_path):
     print(f'\nVisualizing output saved to {output_path}')
     return
 
-
-
-
 def visualizeDir(model_path, output_path, position, direction):
     """ Visualize reconstruction from model and position"""
     #### Load the model and try to "visualize" the model's datapoints
@@ -97,7 +102,6 @@ def visualizeDir(model_path, output_path, position, direction):
 
         # direction for each "point" from camera centre
         directions = torch.tensor(sph2cart(array(ang)))
-
         iterations = 1000
         for i in range(iterations):
             output2 = model_evel(pos, ang)
@@ -117,37 +121,78 @@ def visualizeDir(model_path, output_path, position, direction):
 
     return
 
+
+
+def renderModel(model):
+    num_bins = 64
+    t = np.linspace(-1.2, 1.2, num_bins)
+    query_pts = np.stack(np.meshgrid(t, t, t), -1).astype(np.float32)
+    shape = query_pts.shape
+    flat = rearrange(query_pts, 'x y z d -> (x y z) d')
+
+    # Query the model by chunk to get the density
+    chunk = 1024*64
+    num_points = flat.shape[0]
+    raw = []
+    count = 0
+    for i in range(0, num_points, chunk):
+        print(count)
+        query = torch.tensor(flat[i:i+chunk, :])
+        with torch.no_grad():
+            raw.append((model(query)).detach().numpy())
+        count += 1
+    raw = np.concatenate(raw)
+    raw = rearrange(raw, '(X Y Z) 1 -> X Y Z 1', X = num_bins, Y = num_bins, Z = num_bins)
+
+
+    # # fn = lambda i0, i1 : net_fn(flat[i0:i1,None,:], viewdirs=np.zeros_like(flat[i0:i1]), network_fn=render_kwargs_test['network_fine'])
+
+    # chunk = 1024*64
+    # raw = np.concatenate([fn(i, i+chunk).numpy() for i in range(0, flat.shape[0], chunk)], 0)
+    # raw = np.reshape(raw, list(shape[:-1]) + [-1])
+    sigma = np.maximum(raw[...,-1], 0.)
+
+
+    # Deploy marching cube algorithm
+    threshold = 2
+    print('fraction occupied', np.mean(sigma > threshold))
+    vertices, triangles = mcubes.marching_cubes(sigma, threshold)
+    print('done', vertices.shape, triangles.shape)
+
+
+    mesh = trimesh.Trimesh(vertices / num_bins - .5, triangles)
+    mesh.show()
+
+    return
+
+
+
 if __name__ == "__main__":
     # NOTE: camera points at [1,0,0] when unrotated
-    model_path = r'local/models/version4_trial3.pth'
+    model_path = r'local/models/ver_cumulative_trial00.pth'
     output_path = r'local/visualize/visualize.csv'
+
+
+    ### Parameters for the model
+    HIDDEN_DIM = 512
+    EMBEDDING_DIM_DIR = 10
+    EMBEDDING_DIM_POS = 15
+
+    ###########################
+    model_evel = LiDAR_NeRF(embedding_dim_pos=EMBEDDING_DIM_POS, 
+                       embedding_dim_dir=EMBEDDING_DIM_DIR, 
+                       hidden_dim=HIDDEN_DIM)
     
-    visualize360(model_path,output_path)
+    #### Load the model and try to "visualize" the model's datapoints
+    model_evel.load_state_dict(torch.load(model_path))
+    model_evel.eval(); # Set the model to inference mode
+    renderModel(model_evel)
+
+    
+    # visualize360(model_path,output_path)
     # position = array([0,0,0])
     # direction = array([1,0,0])
     # visualizeDir(model_path, output_path, position, direction)
 
 
-# def getUnitVectorfromImage(direction, focal_length, height = 1, width = 1, width_resolution = 1000, height_resolution = 1000):
-    
-#     # Initialize the output array
-#     unit_vectors = np.zeros((1000000, 3))
-    
-#     # Compute the pixel coordinates
-#     x_coords, y_coords = np.meshgrid(np.arange(height_resolution), np.arange(width_resolution))
-#     x_coords = x_coords * (width / width_resolution)
-#     y_coords = y_coords * (height / height_resolution)
-    
-#     # Flatten the coordinates
-#     x_coords = x_coords.flatten()
-#     y_coords = y_coords.flatten()
-
-#     # Compute the direction vectors
-#     for i in range(height_resolution*width_resolution):
-#         x = (x_coords[i] - width / 2)
-#         y = (y_coords[i] - height / 2)
-#         z = focal_length
-#         vec = np.array([x, y, z])
-#         unit_vectors[i] = vec / np.linalg.norm(vec)
-#     return unit_vectors
 

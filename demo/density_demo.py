@@ -16,13 +16,14 @@ class DensityFittingModel(nn.Module):
         self.fc1 = nn.Linear(1, 10)  # Input layer to hidden layer
         self.fc2 = nn.Linear(10, 1)  # Hidden layer to output layer
         self.fc3 = nn.Linear(10,10)
+        self.softplus = nn.Softplus()
 
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
+        x = self.softplus(self.fc1(x))
         # x = torch.relu(self.fc3(x))
         # x = torch.relu(self.fc3(x))
-        x = torch.relu(self.fc2(x))
+        x = self.softplus(self.fc2(x))
         return x
 
 def render_cumtran(density):

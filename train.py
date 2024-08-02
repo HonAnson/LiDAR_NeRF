@@ -130,7 +130,7 @@ class LiDAR_NeRF(nn.Module):
         return density
 
 
-def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1, lambdaT = 1, lambdad = 1, lambdah = 1):
+def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = int(1e5), num_bins = 100, sampling_variance = 0.5, prediction_variance = 0.1, lambda_T = 1, lambda_d = 1, lambda_h = 1):
     training_losses = []
     num_batch_in_data = len(dataloader)
     count = 0
@@ -177,7 +177,7 @@ def train(model, optimizer, scheduler, dataloader, device = 'cuda', num_epoch = 
             loss_T = BCE_loss(T_pred,T_target)
             loss_h = KL_loss(h_pred.log(), h_target)        #taking log because pytorch assume predicted value to be in log space
             loss_d = MSE_loss(d_pred, d_target)     
-            loss_together = loss_T + loss_d + loss_h     # TODO: hyperparameter tunning
+            loss_together = lambda_T * loss_T + lambda_d * loss_d + lambda_h * loss_h     # TODO: hyperparameter tunning
 
             optimizer.zero_grad()
             loss_together.backward()
@@ -208,10 +208,10 @@ if __name__ == "__main__":
     EMBEDDING_DIM_DIR = 10
     EMBEDDING_DIM_POS = 15
     LEARNING_RATE = 5e-6
-    BATCH_SIZE = 2048
+    BATCH_SIZE = 1024
     NUM_EPOCH = 32
-    LAMBDA_T = 1
-    LAMBDA_d = 50
+    LAMBDA_T = 50
+    LAMBDA_d = 1
     LAMBDA_h = 1
     SAMPLING_VARIANCE = 0.5
     PREDICTION_VARIANCE = 0.1
@@ -237,9 +237,9 @@ if __name__ == "__main__":
                    data_loader, 
                    num_epoch = NUM_EPOCH, 
                    device=device, 
-                   lambdaT = LAMBDA_T, 
-                   lambdad = LAMBDA_d, 
-                   lambdah = LAMBDA_h, 
+                   lambda_T = LAMBDA_T, 
+                   lambda_d = LAMBDA_d, 
+                   lambda_h = LAMBDA_h, 
                    sampling_variance = SAMPLING_VARIANCE, 
                    prediction_variance = PREDICTION_VARIANCE)
                    
