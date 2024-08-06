@@ -121,7 +121,7 @@ def visualizeDir(model_path, output_path, position, direction):
 
 def renderModel(model):
     num_bins = 64
-    t = np.linspace(-1.2, 1.2, num_bins)
+    t = np.linspace(-1.2, 1.2, num_bins)    # TODO: 
     query_pts = np.stack(np.meshgrid(t, t, t), -1).astype(np.float32)
     shape = query_pts.shape
     flat = rearrange(query_pts, 'x y z d -> (x y z) d')
@@ -140,16 +140,11 @@ def renderModel(model):
     raw = np.concatenate(raw)
     raw = rearrange(raw, '(X Y Z) 1 -> X Y Z 1', X = num_bins, Y = num_bins, Z = num_bins)
 
-
     # # fn = lambda i0, i1 : net_fn(flat[i0:i1,None,:], viewdirs=np.zeros_like(flat[i0:i1]), network_fn=render_kwargs_test['network_fine'])
-
-    # chunk = 1024*64
     # raw = np.reshape(raw, list(shape[:-1]) + [-1])
     sigma = np.maximum(raw[...,-1], 0.)
-
-
     # Deploy marching cube algorithm
-    threshold = 2
+    threshold = 10
     print('fraction occupied', np.mean(sigma > threshold))
     vertices, triangles = mcubes.marching_cubes(sigma, threshold)
     print('done', vertices.shape, triangles.shape)
@@ -164,7 +159,7 @@ def renderModel(model):
 
 if __name__ == "__main__":
     # NOTE: camera points at [1,0,0] when unrotated
-    model_path = r'local/models/ver_cumulative_trial02.pth'
+    weights_path = r'local/models/ver_cumulative_trial00.pth'
     output_path = r'local/visualize/visualize.csv'
 
 
@@ -179,7 +174,7 @@ if __name__ == "__main__":
                        hidden_dim=HIDDEN_DIM)
     
     #### Load the model and try to "visualize" the model's datapoints
-    model_evel.load_state_dict(torch.load(model_path))
+    model_evel.load_state_dict(torch.load(weights_path))
     model_evel.eval(); # Set the model to inference mode
     renderModel(model_evel)
 
