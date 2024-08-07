@@ -70,7 +70,7 @@ def prepareTrainingData(data):
             printProgress(message)
         iter += 1
 
-    # scale furthest distance between two points (including camera position) to 1 and centred at 0        
+    # scale furthest distance between two points (including camera position) to 2 and centred at 0        
     scene_points = scene_points[1:,:]   # discard first row
     max_xyz = np.max(scene_points, axis=0)
     min_xyz = np.min(scene_points, axis=0)
@@ -89,8 +89,8 @@ if __name__ == "__main__":
     data = loadDataFromRegisteredSlam(input_path)
     training_data = prepareTrainingData(data)
     output_name = name + r'.npy'
-    np.save(output_name, training_data)
-    print(f"file have been saved to {output_name}")
+    # np.save(output_name, training_data)
+    # print(f"file have been saved to {output_name}")
     
 
 

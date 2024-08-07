@@ -58,7 +58,6 @@ def getSamplingPositions(centres, directions, distance, sampling_variance, num_b
     return pos, delta, magnitudes
 
 def computeCumulativeTransmittance(alpha, device):
-    # alpha = 1 - exp(-density * delta)
     K = torch.cumprod((1 - alpha), 1)   # K is just a temporary variable
     ones = torch.ones((K.shape[0],1), device = device)
     T = torch.cat((ones, K[:,:-1]), 1)
