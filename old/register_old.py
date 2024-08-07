@@ -4,8 +4,6 @@ from einops import rearrange, repeat
 import pandas as pd         # for loadData()
 import open3d as o3d        # for getting point cloud register
 
-
-
 def cart2sph(xyz):
     x = xyz[:,0]
     y = xyz[:,1]
@@ -72,12 +70,7 @@ def getTransformation(data):
     
 def prepareData(points_xyz):
     # get transformations
-
     # transformations = getTransformation(points_xyz)
-    # transformations =     
-
-
-
     # register all points onto same global coordinte (global coordinate align with frame 0 coordinate)
     # points_reg_xyz = []
     # for i, points in enumerate(points_xyz):
@@ -100,8 +93,6 @@ def prepareData(points_xyz):
         [3.5695,0,0],
         [4.4137,0,0]
     ])    
-
-
 
     # get the angular direction and distance of rays    
     points_sph = []

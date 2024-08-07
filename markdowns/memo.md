@@ -1,11 +1,12 @@
 ### Livox Data CSV
-
 - X, Y, Z, are location of the point, with respect to the camera centre
 - No time information provided
-- No
 
 
 
+## Version 1
+- Using angle and position as input, and train model to predict projected cumulative transmittance
+- 
 ### Trial 0
 - Used spherical harmonics as encoder for view direction
 - Combined measurement from 5 frames into 1 set, assuming linear translation between frames only
@@ -79,21 +80,52 @@
 - Used MSE loss instead of sigmoid and BCE loss
 - Achieved similar result with sigmoid and BCE loss
 
+## Version 3
+- Trying to use space wrapping 
+- In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
+- 
 ### Trial 1
 - attempt to use polar coordinate for training, doesn't appear to improve loss value
 - Reconstruction quality lower than using cartisian coordinate
 
-## Version 3
-- Trying to use space wrapping 
-- In particular, I first try to use polar angle coordinate to express view point instead of xyz coordinate
 
 ### Trial 2
 - Applied wrapping with radius 10 around [0,0,0], hopefully would help
 - Also used manual registering of the data, whcich shall improve reconstruction quality
 
 
+## Version 4
+- Using object centered data, that is known to be more suitable for nerf models
+- Data are collected manually
+
+### Trial 0
+- Tried using same model as previou part, but using object centered data
+- Didn't achieve any good result compared to previous method
+
+### Trial 1
+- trained model on data box_plant2.npy
+- Using same model architecture
+- Fixed logic bug in sampling
+- Using updated sampling method (inverse sigmoid from univorm distribution)
+- Unable to judge well reconstruction result due to lack of visualization function
+- Trained model with 8 epoch, batchsize 1024
+
+### Trial 2
+- Settings same as v4trial1, but trained on round plant data, which has better registeration
+- Trained model with 16 epoch, used around 12 hours on nvidia 3050gpu, batchsize 1024
+
+### Trial 3
+- Same setting as previou, using building data
+this time using MSE loss
+
 ### TODO
-* check whether upSampling() is working properly, where we are always using the smaller angle
+* Work on visualization
+* Figure out how to use HPC in campus
+* Work on adding wrapping to the model
+* Try to skew the sampling
+* Scale all scenes (including camera poses)such that they are within certian range (maybe 0 to 1)
+* Update `getSpacing` method so that number of samples are porpotional to "length" of the ray
+* Create a function for getting "Mask" from pose
 
 ### Note to self:
 1. update design of loss function to: either include implciit LOD or enforce projected TSDF instead of the current SDF
@@ -105,9 +137,18 @@
 4. Download other dataset and give it a go
 
 
+- According to paper `DS-NeRF`, they concluded that the ideal ray termination distribution approaches a δ impulse function. Where the variance of `Occupancy` approach 0 In the context of LiDAR measurement, the delta impulse function is actually known. Thus, the task of the model is to fit a delta impulse function.
+-> How to fit?  
+
+
+
+
 - Done: Figure out what the fuck is space wrapping
 - Basically a mapping function to map R3 space to R3, while "density" of the space is porpotional to the sampling density of sensors
 
 - Done: try to choose smaller area of data for reconstruction, see how it perform
 - Tried on choosing structure nearby only, poor reconstruction problem still exist. Potentially due to the model don't know what to do when there is no ray (truncated due to it being very far)
 - Review other's work on how to handle this problem (Mip NeRF 360)
+
+
+
