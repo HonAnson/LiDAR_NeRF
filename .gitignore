@@ -10,4 +10,6 @@ settings.json
 
 # local stuff
 local/
+playground.py
+playground.ipynb
 
