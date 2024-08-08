@@ -56,7 +56,6 @@ def projection(camera_frame_pts, image_width, image_height, num_pix_w, num_pix_h
         y = data[i, 1]
         R, G, B = data[i,2], data[i,3], data[i,4]
         
-
     return image
 
 def gaussianIntraPolation(filter_size):
